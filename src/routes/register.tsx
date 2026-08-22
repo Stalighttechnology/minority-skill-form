@@ -86,8 +86,8 @@ function Field({
   children,
 }: {
   label: string;
-  required?: boolean;
-  error?: string;
+  required?: boolean | undefined;
+  error?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
@@ -129,7 +129,30 @@ function RegisterPage() {
     }
     setErrors({});
     setSubmitting(true);
-    const { error } = await supabase.from("registrations").insert(parsed.data);
+    const d = parsed.data;
+    const { error } = await supabase.from("registrations").insert({
+      full_name: d.full_name,
+      father_name: d.father_name || null,
+      gender: d.gender,
+      date_of_birth: d.date_of_birth,
+      religion: d.religion,
+      email: d.email,
+      phone: d.phone,
+      alt_phone: d.alt_phone || null,
+      address: d.address,
+      district: d.district,
+      taluk: d.taluk || null,
+      pincode: d.pincode,
+      qualification: d.qualification,
+      year_of_passing: d.year_of_passing || null,
+      course: d.course,
+      preferred_centre: d.preferred_centre,
+      employment_status: d.employment_status || null,
+      family_income: d.family_income || null,
+      heard_from: d.heard_from || null,
+      remarks: d.remarks || null,
+      declaration: true,
+    });
     setSubmitting(false);
     if (error) {
       setServerError("We could not submit your application. Please try again.");
