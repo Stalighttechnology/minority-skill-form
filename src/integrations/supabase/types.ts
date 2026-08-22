@@ -14,7 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      registrations: {
+        Row: {
+          address: string
+          alt_phone: string | null
+          course: string
+          created_at: string
+          date_of_birth: string
+          declaration: boolean
+          district: string
+          email: string
+          employment_status: string | null
+          family_income: string | null
+          father_name: string | null
+          full_name: string
+          gender: string
+          heard_from: string | null
+          id: string
+          phone: string
+          pincode: string
+          preferred_centre: string
+          qualification: string
+          religion: string
+          remarks: string | null
+          taluk: string | null
+          year_of_passing: string | null
+        }
+        Insert: {
+          address: string
+          alt_phone?: string | null
+          course: string
+          created_at?: string
+          date_of_birth: string
+          declaration?: boolean
+          district: string
+          email: string
+          employment_status?: string | null
+          family_income?: string | null
+          father_name?: string | null
+          full_name: string
+          gender: string
+          heard_from?: string | null
+          id?: string
+          phone: string
+          pincode: string
+          preferred_centre: string
+          qualification: string
+          religion: string
+          remarks?: string | null
+          taluk?: string | null
+          year_of_passing?: string | null
+        }
+        Update: {
+          address?: string
+          alt_phone?: string | null
+          course?: string
+          created_at?: string
+          date_of_birth?: string
+          declaration?: boolean
+          district?: string
+          email?: string
+          employment_status?: string | null
+          family_income?: string | null
+          father_name?: string | null
+          full_name?: string
+          gender?: string
+          heard_from?: string | null
+          id?: string
+          phone?: string
+          pincode?: string
+          preferred_centre?: string
+          qualification?: string
+          religion?: string
+          remarks?: string | null
+          taluk?: string | null
+          year_of_passing?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
