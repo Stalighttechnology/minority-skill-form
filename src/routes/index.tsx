@@ -1,166 +1,482 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, type FormEvent } from "react";
+import { z } from "zod";
+import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
-import { COURSES, MINORITY_RELIGIONS, WEB_LINKS } from "@/data/skill";
-import heroBg from "@/assets/hero-bg.jpg";
-import skillImg from "@/assets/skill-learn-lead.jpg";
+import { COURSES, MINORITY_RELIGIONS, CENTRES, QUALIFICATIONS } from "@/data/skill";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Skill Development @VTU — Minority Skill Training Programme" },
+      { title: "Registration Form — VTU Minority Skill Development Training" },
       {
         name: "description",
         content:
-          "VTU Skill Development Centres offer free job-oriented training for minority community candidates. View proposed courses and apply online.",
+          "Apply online for free VTU skill development training under the Minority Project. Choose your course and preferred training centre.",
       },
-      { property: "og:title", content: "Skill Development @VTU" },
+      { property: "og:title", content: "VTU Skill Training Registration" },
       {
         property: "og:description",
         content:
-          "Free job-oriented skill training at VTU Skill Development Centres for minority community candidates across Karnataka.",
+          "Online application form for VTU Skill Development Centres — Minority Project training courses.",
       },
     ],
   }),
-  component: Index,
+  component: RegisterPage,
 });
 
-function Index() {
+const schema = z.object({
+  full_name: z.string().trim().min(2, "Enter your full name").max(120),
+  father_name: z.string().trim().max(120).optional().or(z.literal("")),
+  gender: z.string().min(1, "Select gender"),
+  date_of_birth: z.string().min(1, "Select your date of birth"),
+  religion: z.string().min(1, "Select your community"),
+  email: z.string().trim().email("Enter a valid email").max(255),
+  phone: z.string().trim().regex(/^[0-9]{10}$/, "Enter a 10-digit mobile number"),
+  alt_phone: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{10}$/, "Enter a 10-digit number")
+    .optional()
+    .or(z.literal("")),
+  address: z.string().trim().min(5, "Enter your address").max(500),
+  district: z.string().trim().min(2, "Enter your district").max(80),
+  taluk: z.string().trim().max(80).optional().or(z.literal("")),
+  pincode: z.string().trim().regex(/^[0-9]{6}$/, "Enter a 6-digit pincode"),
+  qualification: z.string().min(1, "Select your qualification"),
+  year_of_passing: z.string().trim().max(10).optional().or(z.literal("")),
+  course: z.string().min(1, "Select a course"),
+  preferred_centre: z.string().min(1, "Select a training centre"),
+  employment_status: z.string().optional().or(z.literal("")),
+  family_income: z.string().optional().or(z.literal("")),
+  heard_from: z.string().optional().or(z.literal("")),
+  remarks: z.string().trim().max(600).optional().or(z.literal("")),
+  declaration: z.literal(true, { message: "You must accept the declaration" }),
+});
+
+const EMPTY = {
+  full_name: "",
+  father_name: "",
+  gender: "",
+  date_of_birth: "",
+  religion: "",
+  email: "",
+  phone: "",
+  alt_phone: "",
+  address: "",
+  district: "",
+  taluk: "",
+  pincode: "",
+  qualification: "",
+  year_of_passing: "",
+  course: "",
+  preferred_centre: "",
+  employment_status: "",
+  family_income: "",
+  heard_from: "",
+  remarks: "",
+  declaration: false,
+};
+
+function Field({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean | undefined;
+  error?: string | undefined;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="field-label">
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </label>
+      {children}
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function RegisterPage() {
+  const [form, setForm] = useState(EMPTY);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [serverError, setServerError] = useState("");
+
+  const set = (key: string, value: string | boolean) =>
+    setForm((f) => ({ ...f, [key]: value }));
+
+  const selectedCourse = COURSES.find((c) => c.name === form.course);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setServerError("");
+    const parsed = schema.safeParse(form);
+    if (!parsed.success) {
+      const next: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0]);
+        if (!next[key]) next[key] = issue.message;
+      }
+      setErrors(next);
+      return;
+    }
+    setErrors({});
+    setSubmitting(true);
+    const d = parsed.data;
+    const { error } = await supabase.from("registrations").insert({
+      full_name: d.full_name,
+      father_name: d.father_name || null,
+      gender: d.gender,
+      date_of_birth: d.date_of_birth,
+      religion: d.religion,
+      email: d.email,
+      phone: d.phone,
+      alt_phone: d.alt_phone || null,
+      address: d.address,
+      district: d.district,
+      taluk: d.taluk || null,
+      pincode: d.pincode,
+      qualification: d.qualification,
+      year_of_passing: d.year_of_passing || null,
+      course: d.course,
+      preferred_centre: d.preferred_centre,
+      employment_status: d.employment_status || null,
+      family_income: d.family_income || null,
+      heard_from: d.heard_from || null,
+      remarks: d.remarks || null,
+      declaration: true,
+    });
+    setSubmitting(false);
+    if (error) {
+      setServerError("We could not submit your application. Please try again.");
+      return;
+    }
+    setDone(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <section
-        className="relative flex min-h-[320px] items-center justify-center bg-navy-deep bg-cover bg-center"
-        style={{ backgroundImage: `url(${heroBg})` }}
-      >
-        <div className="absolute inset-0 bg-navy-deep/70" />
-        <h1 className="relative px-4 text-center font-display text-3xl font-bold text-navy-foreground sm:text-5xl">
-          Skill Development @VTU
-        </h1>
-      </section>
-
-      <section className="bg-navy-deep py-14">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 lg:grid-cols-[280px_1fr]">
-          <aside>
-            <h2 className="mb-6 font-display text-3xl font-bold text-navy-foreground">
-              Web Links:
-            </h2>
-            <div className="space-y-4">
-              {WEB_LINKS.map((l) => (
-                <a key={l.label} href={l.href} target="_blank" rel="noreferrer" className="link-pill">
-                  {l.label}
-                </a>
-              ))}
-              <a
-                href="https://vtu.ac.in/wp-content/uploads/2025/06/VTU-SDC.pdf"
-                target="_blank"
-                rel="noreferrer"
-                className="link-pill"
-              >
-                Download Brochure
-              </a>
-              <Link to="/register" className="btn-lime w-full">
-                Apply Now
-              </Link>
-            </div>
-          </aside>
-
-          <article className="bg-card p-6 shadow-panel sm:p-10">
-            <img
-              src={skillImg}
-              alt="Students training at a VTU Skill Development Centre"
-              width={1200}
-              height={700}
-              className="mx-auto mb-8 w-full max-w-2xl"
-            />
-            <div className="space-y-4 text-justify text-[0.95rem] leading-relaxed text-foreground/85">
-              <p>
-                <em>Technology</em> is the application of scientific knowledge to the realistic
-                challenges posed by industry and human life. There is a huge impact of changing
-                technologies on career, industry and profession. Engineering skill is ability and
-                capacity acquired through understanding the nuts and bolts of technology that help
-                in smooth adaption for carrying out job functions.
-              </p>
-              <p>
-                VTU-Skill Development Centres set up across various campuses of Visvesvaraya
-                Technological University offer the required skills to potential faculties and
-                students of VTU. They provide a platform to get exposed to advanced technologies
-                either for research, consultancy or training to do a particular task or 'ready to
-                perform skills' for a particular Job Role.
-              </p>
-              <p>
-                At VTU-SDCs, additional capabilities can be acquired by the students alongside the
-                academic qualification that make them job ready by fulfilling the expectations of
-                the industry. Further the faculties are empowered with latest knowledge and advances
-                in technologies that are crucial for imparting the value-added education in their
-                domains.
-              </p>
-              <p>
-                Through re-skilling @VTU students are exposed to learning new skills outside
-                existing skill sets. By up-skilling, the students and faculties are provided with
-                more advanced skills through additional education and training by collaborating and
-                investing significantly in industrial and corporate initiatives.
-              </p>
-              <p>
-                All the Skilling activities of VTU-SDCs focus on enhancing the employability of
-                students of Visvesvaraya Technological University that result in capacity building
-                with productivity and make the faculties more competent in knowledge &amp; research.
-              </p>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section className="bg-background py-16">
-        <div className="mx-auto max-w-5xl px-4">
-          <h2 className="section-title text-center sm:text-4xl">Proposed Training Programme</h2>
-          <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground">
-            The following skill development courses are proposed under the Minority Project for
-            candidates belonging to notified minority communities.
+      <section className="bg-navy-deep py-10">
+        <div className="mx-auto max-w-4xl px-4 text-center">
+          <h1 className="font-display text-2xl font-bold text-navy-foreground sm:text-4xl">
+            Minority Skill Development Training — Registration
+          </h1>
+          <p className="mt-3 text-sm text-navy-foreground/75">
+            Free job-oriented training at VTU Skill Development Centres for candidates from notified
+            minority communities: Muslim, Christian, Jain, Sikh, Buddhist and Parsi.
           </p>
-
-          <div className="mt-8 overflow-hidden rounded-lg border border-border shadow-panel">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-card text-navy">
-                <tr>
-                  <th className="px-4 py-4 text-center font-semibold">Sl. No</th>
-                  <th className="px-4 py-4 font-semibold">Proposed Courses</th>
-                  <th className="px-4 py-4 font-semibold">Qualification Criteria</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COURSES.map((c, i) => (
-                  <tr key={c.id} className={i % 2 === 0 ? "bg-muted" : "bg-card"}>
-                    <td className="px-4 py-4 text-center text-navy">{c.id}</td>
-                    <td className="px-4 py-4 font-medium text-navy">{c.name}</td>
-                    <td className="px-4 py-4 text-navy/80">{c.criteria}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-10 rounded-lg bg-muted p-6">
-            <h3 className="font-display text-xl font-bold text-navy">
-              Castes covered under the Minority Project
-            </h3>
-            <ol className="mt-4 grid gap-2 text-sm text-foreground/85 sm:grid-cols-3">
-              {MINORITY_RELIGIONS.map((r, i) => (
-                <li key={r}>
-                  {i + 1}. {r}
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="mt-10 text-center">
-            <Link to="/register" className="btn-primary">
-              Register for a Course
-            </Link>
-          </div>
         </div>
       </section>
+
+      <main className="mx-auto max-w-4xl px-4 py-12">
+        {done ? (
+          <div className="rounded-lg border border-border bg-card p-10 text-center shadow-panel">
+            <h2 className="section-title">Application submitted</h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Thank you. Your registration has been recorded. The VTU Skill Development Centre team
+              will contact you on the mobile number provided.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setForm(EMPTY);
+                  setDone(false);
+                }}
+              >
+                Submit another response
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form
+            onSubmit={onSubmit}
+            noValidate
+            className="space-y-10 rounded-lg border border-border bg-card p-6 shadow-panel sm:p-10"
+          >
+            <fieldset className="space-y-5">
+              <legend className="section-title mb-3">1. Personal details</legend>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Full name" required error={errors['full_name']}>
+                  <input
+                    className="field-input"
+                    value={form.full_name}
+                    onChange={(e) => set("full_name", e.target.value)}
+                    maxLength={120}
+                  />
+                </Field>
+                <Field label="Father's / Guardian's name" error={errors['father_name']}>
+                  <input
+                    className="field-input"
+                    value={form.father_name}
+                    onChange={(e) => set("father_name", e.target.value)}
+                    maxLength={120}
+                  />
+                </Field>
+                <Field label="Gender" required error={errors['gender']}>
+                  <select
+                    className="field-input"
+                    value={form.gender}
+                    onChange={(e) => set("gender", e.target.value)}
+                  >
+                    <option value="">Choose</option>
+                    {["Female", "Male", "Other"].map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Date of birth" required error={errors['date_of_birth']}>
+                  <input
+                    type="date"
+                    className="field-input"
+                    value={form.date_of_birth}
+                    onChange={(e) => set("date_of_birth", e.target.value)}
+                  />
+                </Field>
+                <Field label="Minority community (caste)" required error={errors['religion']}>
+                  <select
+                    className="field-input"
+                    value={form.religion}
+                    onChange={(e) => set("religion", e.target.value)}
+                  >
+                    <option value="">Choose your community</option>
+                    {MINORITY_RELIGIONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Employment status" error={errors['employment_status']}>
+                  <select
+                    className="field-input"
+                    value={form.employment_status}
+                    onChange={(e) => set("employment_status", e.target.value)}
+                  >
+                    <option value="">Choose</option>
+                    {["Student", "Unemployed", "Employed", "Self-employed"].map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </fieldset>
+
+            <fieldset className="space-y-5">
+              <legend className="section-title mb-3">2. Contact details</legend>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Email address" required error={errors['email']}>
+                  <input
+                    type="email"
+                    className="field-input"
+                    value={form.email}
+                    onChange={(e) => set("email", e.target.value)}
+                    maxLength={255}
+                  />
+                </Field>
+                <Field label="Mobile number" required error={errors['phone']}>
+                  <input
+                    inputMode="numeric"
+                    className="field-input"
+                    value={form.phone}
+                    onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  />
+                </Field>
+                <Field label="Alternate mobile number" error={errors['alt_phone']}>
+                  <input
+                    inputMode="numeric"
+                    className="field-input"
+                    value={form.alt_phone}
+                    onChange={(e) => set("alt_phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  />
+                </Field>
+                <Field label="Pincode" required error={errors['pincode']}>
+                  <input
+                    inputMode="numeric"
+                    className="field-input"
+                    value={form.pincode}
+                    onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  />
+                </Field>
+                <Field label="District" required error={errors['district']}>
+                  <input
+                    className="field-input"
+                    value={form.district}
+                    onChange={(e) => set("district", e.target.value)}
+                    maxLength={80}
+                  />
+                </Field>
+                <Field label="Taluk" error={errors['taluk']}>
+                  <input
+                    className="field-input"
+                    value={form.taluk}
+                    onChange={(e) => set("taluk", e.target.value)}
+                    maxLength={80}
+                  />
+                </Field>
+              </div>
+              <Field label="Full postal address" required error={errors['address']}>
+                <textarea
+                  rows={3}
+                  className="field-input"
+                  value={form.address}
+                  onChange={(e) => set("address", e.target.value)}
+                  maxLength={500}
+                />
+              </Field>
+            </fieldset>
+
+            <fieldset className="space-y-5">
+              <legend className="section-title mb-3">3. Education &amp; course selection</legend>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Highest qualification" required error={errors['qualification']}>
+                  <select
+                    className="field-input"
+                    value={form.qualification}
+                    onChange={(e) => set("qualification", e.target.value)}
+                  >
+                    <option value="">Choose</option>
+                    {QUALIFICATIONS.map((q) => (
+                      <option key={q} value={q}>
+                        {q}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Year of passing" error={errors['year_of_passing']}>
+                  <input
+                    inputMode="numeric"
+                    className="field-input"
+                    value={form.year_of_passing}
+                    onChange={(e) =>
+                      set("year_of_passing", e.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
+                  />
+                </Field>
+                <Field label="Course applied for" required error={errors['course']}>
+                  <select
+                    className="field-input"
+                    value={form.course}
+                    onChange={(e) => set("course", e.target.value)}
+                  >
+                    <option value="">Choose a course</option>
+                    {COURSES.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.id}. {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Preferred training centre" required error={errors['preferred_centre']}>
+                  <select
+                    className="field-input"
+                    value={form.preferred_centre}
+                    onChange={(e) => set("preferred_centre", e.target.value)}
+                  >
+                    <option value="">Choose a centre</option>
+                    {CENTRES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              {selectedCourse && (
+                <p className="rounded-md bg-muted px-4 py-3 text-sm text-navy">
+                  Qualification criteria for <strong>{selectedCourse.name}</strong>:{" "}
+                  {selectedCourse.criteria}
+                </p>
+              )}
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Annual family income" error={errors['family_income']}>
+                  <select
+                    className="field-input"
+                    value={form.family_income}
+                    onChange={(e) => set("family_income", e.target.value)}
+                  >
+                    <option value="">Choose</option>
+                    {["Below ₹1,00,000", "₹1,00,000 – ₹2,50,000", "₹2,50,000 – ₹5,00,000", "Above ₹5,00,000"].map(
+                      (i) => (
+                        <option key={i} value={i}>
+                          {i}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+                <Field label="How did you hear about this programme?" error={errors['heard_from']}>
+                  <select
+                    className="field-input"
+                    value={form.heard_from}
+                    onChange={(e) => set("heard_from", e.target.value)}
+                  >
+                    <option value="">Choose</option>
+                    {["College / Institution", "VTU website", "Social media", "Friends / Family", "Newspaper", "Other"].map(
+                      (h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Remarks (optional)" error={errors['remarks']}>
+                <textarea
+                  rows={3}
+                  className="field-input"
+                  value={form.remarks}
+                  onChange={(e) => set("remarks", e.target.value)}
+                  maxLength={600}
+                />
+              </Field>
+            </fieldset>
+
+            <div className="space-y-4">
+              <label className="flex items-start gap-3 text-sm text-foreground/85">
+                <input
+                  type="checkbox"
+                  checked={form.declaration}
+                  onChange={(e) => set("declaration", e.target.checked)}
+                  className="mt-1 size-4 accent-[oklch(0.31_0.11_263)]"
+                />
+                <span>
+                  I declare that the information furnished above is true to the best of my knowledge
+                  and that I belong to one of the notified minority communities. *
+                </span>
+              </label>
+              {errors['declaration'] && (
+                <p className="text-xs text-destructive">{errors['declaration']}</p>
+              )}
+              {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+              <div className="flex flex-wrap gap-3">
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? "Submitting…" : "Submit application"}
+                </button>
+                <button type="button" className="btn-lime" onClick={() => setForm(EMPTY)}>
+                  Clear form
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+      </main>
 
       <SiteFooter />
     </div>
