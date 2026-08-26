@@ -91,7 +91,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className={error ? "has-error animate-pulse-subtle" : ""}>
       <label className="field-label">
         {label}
         {required && <span className="text-destructive"> *</span>}
@@ -125,12 +125,20 @@ function RegisterPage() {
         if (!next[key]) next[key] = issue.message;
       }
       setErrors(next);
+      
+      // Auto-scroll to the first validation error field
+      setTimeout(() => {
+        const firstErrorElement = document.querySelector(".has-error");
+        if (firstErrorElement) {
+          firstErrorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 100);
       return;
     }
     setErrors({});
     setSubmitting(true);
     const d = parsed.data;
-    const { error } = await supabase.from("registrations").insert({
+    const { error } = await supabase.from("vtu_minority_registrations").insert({
       full_name: d.full_name,
       father_name: d.father_name || null,
       gender: d.gender,
@@ -448,13 +456,13 @@ function RegisterPage() {
               </Field>
             </fieldset>
 
-            <div className="space-y-4">
-              <label className="flex items-start gap-3 text-sm text-foreground/85">
+            <div className={`space-y-4 ${errors['declaration'] ? 'has-error' : ''}`}>
+              <label className="flex items-start gap-3 text-sm text-foreground/85 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={form.declaration}
                   onChange={(e) => set("declaration", e.target.checked)}
-                  className="mt-1 size-4 accent-[oklch(0.31_0.11_263)]"
+                  className="mt-1 size-4 accent-[oklch(0.31_0.11_263)] cursor-pointer"
                 />
                 <span>
                   I declare that the information furnished above is true to the best of my knowledge

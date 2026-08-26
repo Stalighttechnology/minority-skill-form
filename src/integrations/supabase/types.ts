@@ -14,7 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      registrations: {
+      vtu_minority_registrations: {
         Row: {
           address: string
           alt_phone: string | null

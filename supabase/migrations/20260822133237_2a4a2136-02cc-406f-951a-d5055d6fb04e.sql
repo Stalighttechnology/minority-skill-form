@@ -1,4 +1,4 @@
-CREATE TABLE public.registrations (
+CREATE TABLE public.vtu_minority_registrations (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   full_name TEXT NOT NULL,
   father_name TEXT,
@@ -23,8 +23,8 @@ CREATE TABLE public.registrations (
   declaration BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-GRANT INSERT ON public.registrations TO anon;
-GRANT INSERT, SELECT ON public.registrations TO authenticated;
-GRANT ALL ON public.registrations TO service_role;
-ALTER TABLE public.registrations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can submit a registration" ON public.registrations FOR INSERT TO anon, authenticated WITH CHECK (declaration = true);
+GRANT INSERT ON public.vtu_minority_registrations TO anon;
+GRANT INSERT, SELECT ON public.vtu_minority_registrations TO authenticated;
+GRANT ALL ON public.vtu_minority_registrations TO service_role;
+ALTER TABLE public.vtu_minority_registrations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can submit a registration" ON public.vtu_minority_registrations FOR INSERT TO anon, authenticated WITH CHECK (declaration = true);
