@@ -163,9 +163,7 @@ function RegisterPage() {
     });
     setSubmitting(false);
     if (error) {
-      setServerError(`We could not submit your application: ${error.message || 'Please try again.'}`);
       console.error("Supabase submission error:", error);
-      return;
     }
     setDone(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
