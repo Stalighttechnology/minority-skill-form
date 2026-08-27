@@ -33,23 +33,23 @@ export function SiteFooter() {
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-lime" />
                 <span>
-                  <strong>Jnana Sangama Campus</strong>
+                  <strong>Office</strong>
                   <br />
-                  Visvesvaraya Technological University,
+                  No. 130, 1st Block, Dr. Rajkumar Road
                   <br />
-                  Belagavi - 590 018, Karnataka, India.
+                  Rajajinagar, Bengaluru-560010
                 </span>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="h-4 w-4 shrink-0 text-lime" />
-                <a href="mailto:directorsdc.vtu@gmail.com" className="hover:text-white transition-colors">
-                  directorsdc.vtu@gmail.com
+                <a href="mailto:info@eduforcareer.com" className="hover:text-white transition-colors">
+                  info@eduforcareer.com
                 </a>
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="h-4 w-4 shrink-0 text-lime" />
-                <a href="tel:+918073711611" className="hover:text-white transition-colors">
-                  +91-8073711611
+                <a href="tel:+917760826949" className="hover:text-white transition-colors">
+                  +91-77608 26949
                 </a>
               </li>
               <li className="flex items-center gap-3">

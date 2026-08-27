@@ -4,7 +4,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
-import { COURSES, MINORITY_RELIGIONS, CENTRES, QUALIFICATIONS } from "@/data/skill";
+import { COURSES, MINORITY_RELIGIONS, CENTRES, QUALIFICATIONS, KARNATAKA_DISTRICTS, DISTRICT_TALUKS } from "@/data/skill";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -26,6 +26,9 @@ export const Route = createFileRoute("/")({
   component: RegisterPage,
 });
 
+// Years array starting from 1996 till 2008
+const PASSING_YEARS = Array.from({ length: 2008 - 1996 + 1 }, (_, i) => String(1996 + i));
+
 const schema = z.object({
   full_name: z.string().trim().min(2, "Enter your full name").max(120),
   father_name: z.string().trim().max(120).optional().or(z.literal("")),
@@ -41,18 +44,21 @@ const schema = z.object({
     .optional()
     .or(z.literal("")),
   address: z.string().trim().min(5, "Enter your address").max(500),
-  district: z.string().trim().min(2, "Enter your district").max(80),
-  taluk: z.string().trim().max(80).optional().or(z.literal("")),
+  district: z.string().min(1, "Select your district"),
+  taluk: z.string().min(1, "Select your taluk"),
   pincode: z.string().trim().regex(/^[0-9]{6}$/, "Enter a 6-digit pincode"),
   qualification: z.string().min(1, "Select your qualification"),
-  year_of_passing: z.string().trim().max(10).optional().or(z.literal("")),
+  year_of_passing: z.string().min(1, "Select your year of passing"),
   course: z.string().min(1, "Select a course"),
-  preferred_centre: z.string().min(1, "Select a training centre"),
   employment_status: z.string().optional().or(z.literal("")),
   family_income: z.string().optional().or(z.literal("")),
   heard_from: z.string().optional().or(z.literal("")),
   remarks: z.string().trim().max(600).optional().or(z.literal("")),
   declaration: z.literal(true, { message: "You must accept the declaration" }),
+  passport_photo: z.string().min(1, "Passport size photo is required"),
+  aadhaar_card: z.string().min(1, "Aadhaar Card is required"),
+  caste_income_cert: z.string().min(1, "Caste & Income certificate is required"),
+  highest_qualification_cert: z.string().min(1, "Highest qualification certificate is required"),
 });
 
 const EMPTY = {
@@ -71,12 +77,15 @@ const EMPTY = {
   qualification: "",
   year_of_passing: "",
   course: "",
-  preferred_centre: "",
   employment_status: "",
   family_income: "",
   heard_from: "",
   remarks: "",
   declaration: false,
+  passport_photo: "",
+  aadhaar_card: "",
+  caste_income_cert: "",
+  highest_qualification_cert: "",
 };
 
 function Field({
@@ -138,6 +147,9 @@ function RegisterPage() {
     setErrors({});
     setSubmitting(true);
     const d = parsed.data;
+
+    // Supabase has constraints - preferred_centre is required as per migration script.
+    // Since center selection is removed, we default to "VTU - SDC@Bengaluru"
     const { error } = await supabase.from("vtu_minority_registrations").insert({
       full_name: d.full_name,
       father_name: d.father_name || null,
@@ -154,7 +166,7 @@ function RegisterPage() {
       qualification: d.qualification,
       year_of_passing: d.year_of_passing || null,
       course: d.course,
-      preferred_centre: d.preferred_centre,
+      preferred_centre: "VTU - SDC@Bengaluru",
       employment_status: d.employment_status || null,
       family_income: d.family_income || null,
       heard_from: d.heard_from || null,
@@ -176,7 +188,7 @@ function RegisterPage() {
       <section className="bg-navy-deep py-10">
         <div className="mx-auto max-w-4xl px-4 text-center">
           <h1 className="font-display text-2xl font-bold text-navy-foreground sm:text-4xl">
-            Minority Skill Development Training — Registration
+            Minority Skill Development Training - Registration Form
           </h1>
           <p className="mt-3 text-sm text-navy-foreground/75">
             Free job-oriented training at VTU Skill Development Centres for candidates from notified
@@ -320,21 +332,38 @@ function RegisterPage() {
                     onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
                   />
                 </Field>
-                <Field label="District" required error={errors['district']}>
-                  <input
+                 <Field label="District" required error={errors['district']}>
+                  <select
                     className="field-input"
                     value={form.district}
-                    onChange={(e) => set("district", e.target.value)}
-                    maxLength={80}
-                  />
+                    onChange={(e) => {
+                      set("district", e.target.value);
+                      set("taluk", "");
+                    }}
+                  >
+                    <option value="">Choose District</option>
+                    {KARNATAKA_DISTRICTS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
-                <Field label="Taluk" error={errors['taluk']}>
-                  <input
+                <Field label="Taluk" required error={errors['taluk']}>
+                  <select
                     className="field-input"
                     value={form.taluk}
                     onChange={(e) => set("taluk", e.target.value)}
-                    maxLength={80}
-                  />
+                    disabled={!form.district}
+                  >
+                    <option value="">Choose Taluk</option>
+                    {form.district &&
+                      DISTRICT_TALUKS[form.district]?.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                  </select>
                 </Field>
               </div>
               <Field label="Full postal address" required error={errors['address']}>
@@ -365,15 +394,19 @@ function RegisterPage() {
                     ))}
                   </select>
                 </Field>
-                <Field label="Year of passing" error={errors['year_of_passing']}>
-                  <input
-                    inputMode="numeric"
+                <Field label="Year of passing" required error={errors['year_of_passing']}>
+                  <select
                     className="field-input"
                     value={form.year_of_passing}
-                    onChange={(e) =>
-                      set("year_of_passing", e.target.value.replace(/\D/g, "").slice(0, 4))
-                    }
-                  />
+                    onChange={(e) => set("year_of_passing", e.target.value)}
+                  >
+                    <option value="">Choose Year</option>
+                    {PASSING_YEARS.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Course applied for" required error={errors['course']}>
                   <select
@@ -385,20 +418,6 @@ function RegisterPage() {
                     {COURSES.map((c) => (
                       <option key={c.id} value={c.name}>
                         {c.id}. {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Preferred training centre" required error={errors['preferred_centre']}>
-                  <select
-                    className="field-input"
-                    value={form.preferred_centre}
-                    onChange={(e) => set("preferred_centre", e.target.value)}
-                  >
-                    <option value="">Choose a centre</option>
-                    {CENTRES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
                       </option>
                     ))}
                   </select>
@@ -455,6 +474,85 @@ function RegisterPage() {
               </Field>
             </fieldset>
 
+            <fieldset className="space-y-5">
+              <legend className="section-title mb-3">4. Document Uploads (Max 1MB each)</legend>
+              <div className="grid gap-5 sm:grid-cols-2">
+                {[
+                  { key: "passport_photo", label: "Passport size photo", accept: "image/*" },
+                  { key: "aadhaar_card", label: "Aadhaar Card", accept: ".pdf,image/*" },
+                  {
+                    key: "caste_income_cert",
+                    label: "Caste & Income certificate (Should be valid as on date)",
+                    accept: ".pdf,image/*",
+                  },
+                  {
+                    key: "highest_qualification_cert",
+                    label: "Highest qualification certificate",
+                    accept: ".pdf,image/*",
+                  },
+                ].map((item) => {
+                  const currentFileName = form[item.key as keyof typeof form]
+                    ? (form[item.key as keyof typeof form] as string).split("\\").pop() || "File chosen"
+                    : "No file chosen";
+
+                  return (
+                    <Field key={item.key} label={item.label} required error={errors[item.key]}>
+                      <div className="relative flex items-center gap-3 rounded-lg border border-input bg-card p-3 shadow-xs transition-all hover:border-ring">
+                        <label className="inline-flex cursor-pointer items-center justify-center rounded-md bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-accent transition-colors select-none shrink-0">
+                          Choose File
+                          <input
+                            type="file"
+                            accept={item.accept}
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 1024 * 1024) {
+                                  setErrors((prev) => ({
+                                    ...prev,
+                                    [item.key]: "File size exceeds 1MB limit",
+                                  }));
+                                  // Clear file selection
+                                  set(item.key, "");
+                                } else {
+                                  // Clear error if valid
+                                  setErrors((prev) => {
+                                    const copy = { ...prev };
+                                    delete copy[item.key];
+                                    return copy;
+                                  });
+                                  set(item.key, file.name);
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                        <span className="text-xs text-muted-foreground truncate select-none">
+                          {currentFileName}
+                        </span>
+                        {form[item.key as keyof typeof form] && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              set(item.key, "");
+                              setErrors((prev) => {
+                                const copy = { ...prev };
+                                delete copy[item.key];
+                                return copy;
+                              });
+                            }}
+                            className="ml-auto text-xs text-destructive hover:underline font-semibold"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </Field>
+                  );
+                })}
+              </div>
+            </fieldset>
+
             <div className={`space-y-4 ${errors['declaration'] ? 'has-error' : ''}`}>
               <label className="flex items-start gap-3 text-sm text-foreground/85 cursor-pointer select-none">
                 <input
@@ -489,3 +587,4 @@ function RegisterPage() {
     </div>
   );
 }
+

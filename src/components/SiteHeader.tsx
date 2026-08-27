@@ -53,9 +53,6 @@ export function SiteHeader() {
           <p className="mt-2 text-sm text-navy-foreground/80">
             (State Technological University, Govt. of Karnataka)
           </p>
-          <p className="mt-4 text-lg font-medium sm:text-xl">
-            Skill Development @ VTU — Application Form
-          </p>
         </div>
       </div>
     </header>
