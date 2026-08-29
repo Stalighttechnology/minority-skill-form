@@ -98,10 +98,6 @@ export function SiteFooter() {
           <p>© {new Date().getFullYear()} Visvesvaraya Technological University. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <span className="text-slate-600">Minority Project Initiative</span>
-            <span className="text-slate-700">•</span>
-            <a href="/admin" className="text-slate-400 hover:text-slate-200 transition-colors font-medium">
-              Admin Portal
-            </a>
           </div>
         </div>
       </div>

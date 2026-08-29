@@ -279,30 +279,19 @@ function RegisterPage() {
 
       <main className="mx-auto max-w-4xl px-3 sm:px-6 py-6 sm:py-10">
         {done ? (
-          <div className="rounded-2xl border border-border bg-card p-6 sm:p-10 text-center shadow-panel animate-in fade-in zoom-in-95">
+          <div className="rounded-2xl border border-border bg-card p-6 sm:p-10 text-center shadow-panel animate-in fade-in zoom-in-95 max-w-xl mx-auto">
             <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 text-emerald-600 mb-4 shadow-xs">
               <svg className="h-9 w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
             
-            <h2 className="section-title text-xl sm:text-2xl text-emerald-800">Application Submitted Successfully</h2>
-            
-            {/* Candidate Unique Reference Number Card */}
-            <div className="mt-5 p-4 sm:p-5 max-w-md mx-auto rounded-xl bg-slate-50 border-2 border-dashed border-navy/30 text-center">
-              <span className="text-xs uppercase tracking-wider font-semibold text-slate-500 block">
-                Candidate Application Reference Number
-              </span>
-              <div className="mt-1 font-mono text-xl sm:text-2xl font-extrabold text-navy tracking-wide select-all">
-                {generatedRefNo}
-              </div>
-              <p className="mt-1.5 text-[11px] text-slate-500">
-                Please save or note down this reference number for future communication and status tracking.
-              </p>
-            </div>
+            <h2 className="section-title text-xl sm:text-2xl text-emerald-800">
+              Application Submitted Successfully
+            </h2>
 
-            <p className="mt-4 text-xs sm:text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
-              Thank you for applying. Your registration has been recorded under the VTU Minority Skill Development Programme. The Skill Development Centre team will contact you on your registered mobile number.
+            <p className="mt-4 text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+              Thank you for applying. Your registration details and documents have been recorded successfully under the <strong>VTU Minority Skill Development Programme</strong>. The Skill Development Centre team will review your application and contact you on your registered phone number.
             </p>
 
             <div className="mt-6 sm:mt-8 flex flex-wrap justify-center gap-3">
@@ -315,7 +304,7 @@ function RegisterPage() {
                   setDone(false);
                 }}
               >
-                Submit another response
+                Submit another application
               </button>
             </div>
           </div>
@@ -683,16 +672,23 @@ function RegisterPage() {
                                     ...prev,
                                     [item.key]: "File size exceeds 1MB limit",
                                   }));
-                                  // Clear file selection
                                   set(item.key, "");
                                 } else {
-                                  // Clear error if valid
                                   setErrors((prev) => {
                                     const copy = { ...prev };
                                     delete copy[item.key];
                                     return copy;
                                   });
-                                  set(item.key, file.name);
+
+                                  // Convert to Data URL / Base64 so it can be saved, previewed, and fetched
+                                  const reader = new FileReader();
+                                  reader.onload = () => {
+                                    set(item.key, reader.result as string);
+                                  };
+                                  reader.onerror = () => {
+                                    set(item.key, file.name);
+                                  };
+                                  reader.readAsDataURL(file);
                                 }
                               }
                             }}

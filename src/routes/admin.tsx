@@ -12,6 +12,8 @@ import {
   Download,
   Edit,
   Eye,
+  Trash2,
+  AlertTriangle,
   LogOut,
   RefreshCw,
   ShieldCheck,
@@ -295,6 +297,11 @@ export function AdminDashboard() {
           preferred_centre: editingApp.preferred_centre,
           employment_status: editingApp.employment_status,
           family_income: editingApp.family_income,
+          heard_from: editingApp.heard_from,
+          passport_photo_url: editingApp.passport_photo_url,
+          aadhaar_card_url: editingApp.aadhaar_card_url,
+          caste_income_cert_url: editingApp.caste_income_cert_url,
+          highest_qualification_cert_url: editingApp.highest_qualification_cert_url,
           status: editingApp.status,
           remarks: editingApp.remarks,
         } as any)
@@ -318,6 +325,39 @@ export function AdminDashboard() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Delete Application (Admin Only)
+  const [deleteModalApp, setDeleteModalApp] = useState<Registration | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const confirmDeleteApplication = async () => {
+    if (!deleteModalApp) return;
+    setDeletingId(deleteModalApp.id);
+    try {
+      const { error } = await supabase
+        .from("vtu_minority_registrations")
+        .delete()
+        .eq("id", deleteModalApp.id);
+
+      if (error) {
+        console.error("Delete error:", error);
+        alert("Failed to delete application: " + error.message);
+      } else {
+        setRegistrations((prev) => prev.filter((r) => r.id !== deleteModalApp.id));
+        if (viewingApp && viewingApp.id === deleteModalApp.id) {
+          setViewingApp(null);
+        }
+        if (editingApp && editingApp.id === deleteModalApp.id) {
+          setEditingApp(null);
+        }
+        setDeleteModalApp(null);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -835,6 +875,15 @@ export function AdminDashboard() {
                               Reject
                             </button>
                           )}
+
+                          {/* Delete Application (Admin Only) */}
+                          <button
+                            onClick={() => setDeleteModalApp(app)}
+                            className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                            title="Delete Application"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1031,52 +1080,140 @@ export function AdminDashboard() {
                   4. Uploaded Documents & Verification
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <div>
-                      <span className="text-slate-500 block text-[11px]">Passport Photo:</span>
-                      <strong className="text-slate-800 truncate block max-w-[200px]">
-                        {viewingApp.passport_photo_url || "Uploaded (Attached)"}
-                      </strong>
+                  {/* Passport Photo */}
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {viewingApp.passport_photo_url && viewingApp.passport_photo_url.startsWith("data:image") ? (
+                        <img
+                          src={viewingApp.passport_photo_url}
+                          alt="Passport Photo"
+                          className="h-12 w-12 rounded-lg object-cover border border-slate-300 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                          IMG
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <span className="text-slate-500 block text-[11px]">Passport Photo</span>
+                        <strong className="text-slate-800 truncate block text-xs">
+                          {viewingApp.passport_photo_url ? (viewingApp.passport_photo_url.startsWith("data:") ? "Photo Attached" : viewingApp.passport_photo_url) : "Not Uploaded"}
+                        </strong>
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                      ✓ Attached
-                    </span>
+                    {viewingApp.passport_photo_url && (
+                      <a
+                        href={viewingApp.passport_photo_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={`${viewingApp.reference_no || "candidate"}_photo`}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-navy border border-slate-200 rounded-md text-[11px] font-semibold shrink-0"
+                      >
+                        View / Download
+                      </a>
+                    )}
                   </div>
 
-                  <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <div>
-                      <span className="text-slate-500 block text-[11px]">Aadhaar Card:</span>
-                      <strong className="text-slate-800 truncate block max-w-[200px]">
-                        {viewingApp.aadhaar_card_url || "Uploaded (Attached)"}
-                      </strong>
+                  {/* Aadhaar Card */}
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {viewingApp.aadhaar_card_url && viewingApp.aadhaar_card_url.startsWith("data:image") ? (
+                        <img
+                          src={viewingApp.aadhaar_card_url}
+                          alt="Aadhaar Card"
+                          className="h-12 w-12 rounded-lg object-cover border border-slate-300 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                          DOC
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <span className="text-slate-500 block text-[11px]">Aadhaar Card</span>
+                        <strong className="text-slate-800 truncate block text-xs">
+                          {viewingApp.aadhaar_card_url ? (viewingApp.aadhaar_card_url.startsWith("data:") ? "Aadhaar Document Attached" : viewingApp.aadhaar_card_url) : "Not Uploaded"}
+                        </strong>
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                      ✓ Attached
-                    </span>
+                    {viewingApp.aadhaar_card_url && (
+                      <a
+                        href={viewingApp.aadhaar_card_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={`${viewingApp.reference_no || "candidate"}_aadhaar`}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-navy border border-slate-200 rounded-md text-[11px] font-semibold shrink-0"
+                      >
+                        View / Download
+                      </a>
+                    )}
                   </div>
 
-                  <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <div>
-                      <span className="text-slate-500 block text-[11px]">Caste & Income Certificate:</span>
-                      <strong className="text-slate-800 truncate block max-w-[200px]">
-                        {viewingApp.caste_income_cert_url || "Uploaded (Attached)"}
-                      </strong>
+                  {/* Caste & Income Certificate */}
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {viewingApp.caste_income_cert_url && viewingApp.caste_income_cert_url.startsWith("data:image") ? (
+                        <img
+                          src={viewingApp.caste_income_cert_url}
+                          alt="Caste Cert"
+                          className="h-12 w-12 rounded-lg object-cover border border-slate-300 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shrink-0">
+                          DOC
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <span className="text-slate-500 block text-[11px]">Caste & Income Certificate</span>
+                        <strong className="text-slate-800 truncate block text-xs">
+                          {viewingApp.caste_income_cert_url ? (viewingApp.caste_income_cert_url.startsWith("data:") ? "Caste Cert Attached" : viewingApp.caste_income_cert_url) : "Not Uploaded"}
+                        </strong>
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                      ✓ Attached
-                    </span>
+                    {viewingApp.caste_income_cert_url && (
+                      <a
+                        href={viewingApp.caste_income_cert_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={`${viewingApp.reference_no || "candidate"}_caste_income`}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-navy border border-slate-200 rounded-md text-[11px] font-semibold shrink-0"
+                      >
+                        View / Download
+                      </a>
+                    )}
                   </div>
 
-                  <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <div>
-                      <span className="text-slate-500 block text-[11px]">Highest Qualification Certificate:</span>
-                      <strong className="text-slate-800 truncate block max-w-[200px]">
-                        {viewingApp.highest_qualification_cert_url || "Uploaded (Attached)"}
-                      </strong>
+                  {/* Highest Qualification Certificate */}
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {viewingApp.highest_qualification_cert_url && viewingApp.highest_qualification_cert_url.startsWith("data:image") ? (
+                        <img
+                          src={viewingApp.highest_qualification_cert_url}
+                          alt="Qualification Cert"
+                          className="h-12 w-12 rounded-lg object-cover border border-slate-300 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                          DOC
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <span className="text-slate-500 block text-[11px]">Highest Qualification Certificate</span>
+                        <strong className="text-slate-800 truncate block text-xs">
+                          {viewingApp.highest_qualification_cert_url ? (viewingApp.highest_qualification_cert_url.startsWith("data:") ? "Qualification Cert Attached" : viewingApp.highest_qualification_cert_url) : "Not Uploaded"}
+                        </strong>
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                      ✓ Attached
-                    </span>
+                    {viewingApp.highest_qualification_cert_url && (
+                      <a
+                        href={viewingApp.highest_qualification_cert_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={`${viewingApp.reference_no || "candidate"}_qualification`}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-navy border border-slate-200 rounded-md text-[11px] font-semibold shrink-0"
+                      >
+                        View / Download
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1092,22 +1229,36 @@ export function AdminDashboard() {
             </div>
 
             {/* Footer */}
-            <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end gap-2">
+            <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
               <button
+                type="button"
                 onClick={() => {
-                  setEditingApp({ ...viewingApp });
-                  setViewingApp(null);
+                  setDeleteModalApp(viewingApp);
                 }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-colors"
+                className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5"
               >
-                Edit Details
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete Application
               </button>
-              <button
-                onClick={() => setViewingApp(null)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-lg text-xs transition-colors"
-              >
-                Close
-              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setEditingApp({ ...viewingApp });
+                    setViewingApp(null);
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                  Edit Details
+                </button>
+                <button
+                  onClick={() => setViewingApp(null)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-lg text-xs transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1352,6 +1503,278 @@ export function AdminDashboard() {
                 </div>
               </div>
 
+              {/* 5. Document Attachments Edit */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-2">
+                  5. Document Attachments & Files (Admin Editable & Uploadable)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                  {/* Passport Photo */}
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        Passport Photo
+                      </label>
+                      {editingApp.passport_photo_url && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingApp({ ...editingApp, passport_photo_url: "" })}
+                          className="text-[10px] text-red-600 hover:underline font-semibold"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {editingApp.passport_photo_url ? (
+                      <div className="flex items-center gap-2">
+                        {editingApp.passport_photo_url.startsWith("data:image") ? (
+                          <img
+                            src={editingApp.passport_photo_url}
+                            alt="Passport Photo"
+                            className="h-10 w-10 object-cover rounded border border-slate-300"
+                          />
+                        ) : (
+                          <span className="text-[11px] text-slate-700 font-mono truncate max-w-[140px]">
+                            {editingApp.passport_photo_url}
+                          </span>
+                        )}
+                        <label className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded cursor-pointer font-medium ml-auto">
+                          Replace
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                const r = new FileReader();
+                                r.onload = () => setEditingApp({ ...editingApp, passport_photo_url: r.result as string });
+                                r.readAsDataURL(f);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center p-2 border border-dashed border-slate-300 rounded text-[11px] text-blue-600 bg-blue-50/50 hover:bg-blue-50 cursor-pointer font-medium">
+                        + Upload Passport Photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              const r = new FileReader();
+                              r.onload = () => setEditingApp({ ...editingApp, passport_photo_url: r.result as string });
+                              r.readAsDataURL(f);
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Aadhaar Card */}
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        Aadhaar Card
+                      </label>
+                      {editingApp.aadhaar_card_url && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingApp({ ...editingApp, aadhaar_card_url: "" })}
+                          className="text-[10px] text-red-600 hover:underline font-semibold"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {editingApp.aadhaar_card_url ? (
+                      <div className="flex items-center gap-2">
+                        {editingApp.aadhaar_card_url.startsWith("data:image") ? (
+                          <img
+                            src={editingApp.aadhaar_card_url}
+                            alt="Aadhaar"
+                            className="h-10 w-10 object-cover rounded border border-slate-300"
+                          />
+                        ) : (
+                          <span className="text-[11px] text-slate-700 font-mono truncate max-w-[140px]">
+                            {editingApp.aadhaar_card_url.startsWith("data:") ? "PDF Document" : editingApp.aadhaar_card_url}
+                          </span>
+                        )}
+                        <label className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded cursor-pointer font-medium ml-auto">
+                          Replace
+                          <input
+                            type="file"
+                            accept=".pdf,image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                const r = new FileReader();
+                                r.onload = () => setEditingApp({ ...editingApp, aadhaar_card_url: r.result as string });
+                                r.readAsDataURL(f);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center p-2 border border-dashed border-slate-300 rounded text-[11px] text-blue-600 bg-blue-50/50 hover:bg-blue-50 cursor-pointer font-medium">
+                        + Upload Aadhaar Card
+                        <input
+                          type="file"
+                          accept=".pdf,image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              const r = new FileReader();
+                              r.onload = () => setEditingApp({ ...editingApp, aadhaar_card_url: r.result as string });
+                              r.readAsDataURL(f);
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Caste & Income Certificate */}
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        Caste & Income Certificate
+                      </label>
+                      {editingApp.caste_income_cert_url && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingApp({ ...editingApp, caste_income_cert_url: "" })}
+                          className="text-[10px] text-red-600 hover:underline font-semibold"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {editingApp.caste_income_cert_url ? (
+                      <div className="flex items-center gap-2">
+                        {editingApp.caste_income_cert_url.startsWith("data:image") ? (
+                          <img
+                            src={editingApp.caste_income_cert_url}
+                            alt="Caste Cert"
+                            className="h-10 w-10 object-cover rounded border border-slate-300"
+                          />
+                        ) : (
+                          <span className="text-[11px] text-slate-700 font-mono truncate max-w-[140px]">
+                            {editingApp.caste_income_cert_url.startsWith("data:") ? "PDF Document" : editingApp.caste_income_cert_url}
+                          </span>
+                        )}
+                        <label className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded cursor-pointer font-medium ml-auto">
+                          Replace
+                          <input
+                            type="file"
+                            accept=".pdf,image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                const r = new FileReader();
+                                r.onload = () => setEditingApp({ ...editingApp, caste_income_cert_url: r.result as string });
+                                r.readAsDataURL(f);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center p-2 border border-dashed border-slate-300 rounded text-[11px] text-blue-600 bg-blue-50/50 hover:bg-blue-50 cursor-pointer font-medium">
+                        + Upload Caste Certificate
+                        <input
+                          type="file"
+                          accept=".pdf,image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              const r = new FileReader();
+                              r.onload = () => setEditingApp({ ...editingApp, caste_income_cert_url: r.result as string });
+                              r.readAsDataURL(f);
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Highest Qualification */}
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        Highest Qualification Certificate
+                      </label>
+                      {editingApp.highest_qualification_cert_url && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingApp({ ...editingApp, highest_qualification_cert_url: "" })}
+                          className="text-[10px] text-red-600 hover:underline font-semibold"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {editingApp.highest_qualification_cert_url ? (
+                      <div className="flex items-center gap-2">
+                        {editingApp.highest_qualification_cert_url.startsWith("data:image") ? (
+                          <img
+                            src={editingApp.highest_qualification_cert_url}
+                            alt="Qualification Cert"
+                            className="h-10 w-10 object-cover rounded border border-slate-300"
+                          />
+                        ) : (
+                          <span className="text-[11px] text-slate-700 font-mono truncate max-w-[140px]">
+                            {editingApp.highest_qualification_cert_url.startsWith("data:") ? "PDF Document" : editingApp.highest_qualification_cert_url}
+                          </span>
+                        )}
+                        <label className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded cursor-pointer font-medium ml-auto">
+                          Replace
+                          <input
+                            type="file"
+                            accept=".pdf,image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                const r = new FileReader();
+                                r.onload = () => setEditingApp({ ...editingApp, highest_qualification_cert_url: r.result as string });
+                                r.readAsDataURL(f);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center p-2 border border-dashed border-slate-300 rounded text-[11px] text-blue-600 bg-blue-50/50 hover:bg-blue-50 cursor-pointer font-medium">
+                        + Upload Qualification Cert
+                        <input
+                          type="file"
+                          accept=".pdf,image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              const r = new FileReader();
+                              r.onload = () => setEditingApp({ ...editingApp, highest_qualification_cert_url: r.result as string });
+                              r.readAsDataURL(f);
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Remarks</label>
                 <textarea
@@ -1362,22 +1785,83 @@ export function AdminDashboard() {
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setEditingApp(null)}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-lg text-xs transition-colors"
+                  onClick={() => {
+                    setDeleteModalApp(editingApp);
+                  }}
+                  className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-semibold rounded-lg text-xs transition-colors flex items-center gap-1.5"
                 >
-                  Cancel
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Application
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-navy hover:bg-navy-deep text-white font-semibold rounded-lg text-xs shadow-md transition-colors"
-                >
-                  Save Changes
-                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingApp(null)}
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-lg text-xs transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-navy hover:bg-navy-deep text-white font-semibold rounded-lg text-xs shadow-md transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL (Admin Only) */}
+      {deleteModalApp && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in fade-in zoom-in-95 space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete Application?</h3>
+                <p className="text-xs text-slate-500">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-red-50/70 border border-red-200 rounded-xl text-xs text-slate-700 space-y-1.5">
+              <p>
+                Are you sure you want to permanently delete candidate registration:
+              </p>
+              <div className="font-bold text-slate-900">
+                {deleteModalApp.full_name} ({deleteModalApp.reference_no || deleteModalApp.id.slice(0, 8)})
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Course: {deleteModalApp.course} • {deleteModalApp.preferred_centre}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteModalApp(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteApplication}
+                disabled={deletingId === deleteModalApp.id}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-xs shadow-md transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deletingId === deleteModalApp.id ? "Deleting..." : "Yes, Delete Record"}
+              </button>
+            </div>
           </div>
         </div>
       )}
