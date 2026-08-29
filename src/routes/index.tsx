@@ -4,6 +4,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import campusBg from "@/assets/about-bg1-1.jpg";
 import { COURSES, MINORITY_RELIGIONS, CENTRES, QUALIFICATIONS, KARNATAKA_DISTRICTS, DISTRICT_TALUKS } from "@/data/skill";
 
 export const Route = createFileRoute("/")({
@@ -26,15 +27,18 @@ export const Route = createFileRoute("/")({
   component: RegisterPage,
 });
 
-// Years array starting from 1996 till 2008
-const PASSING_YEARS = Array.from({ length: 2008 - 1996 + 1 }, (_, i) => String(1996 + i));
-
 const schema = z.object({
   full_name: z.string().trim().min(2, "Enter your full name").max(120),
   father_name: z.string().trim().max(120).optional().or(z.literal("")),
+  mother_name: z.string().trim().max(120).optional().or(z.literal("")),
   gender: z.string().min(1, "Select gender"),
   date_of_birth: z.string().min(1, "Select your date of birth"),
   religion: z.string().min(1, "Select your community"),
+  specially_abled: z.enum(["Yes", "No"], { message: "Please select if specially abled" }),
+  aadhaar_number: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{12}$/, "Aadhaar number must be exactly 12 digits (numbers only)"),
   email: z.string().trim().email("Enter a valid email").max(255),
   phone: z.string().trim().regex(/^[0-9]{10}$/, "Enter a 10-digit mobile number"),
   alt_phone: z
@@ -48,8 +52,9 @@ const schema = z.object({
   taluk: z.string().min(1, "Select your taluk"),
   pincode: z.string().trim().regex(/^[0-9]{6}$/, "Enter a 6-digit pincode"),
   qualification: z.string().min(1, "Select your qualification"),
-  year_of_passing: z.string().min(1, "Select your year of passing"),
+  year_of_passing: z.string().trim().min(2, "Enter your year of passing").max(10),
   course: z.string().min(1, "Select a course"),
+  preferred_training_location: z.string().min(1, "Select your preferred training location"),
   employment_status: z.string().optional().or(z.literal("")),
   family_income: z.string().optional().or(z.literal("")),
   heard_from: z.string().optional().or(z.literal("")),
@@ -64,9 +69,12 @@ const schema = z.object({
 const EMPTY = {
   full_name: "",
   father_name: "",
+  mother_name: "",
   gender: "",
   date_of_birth: "",
   religion: "",
+  specially_abled: "No",
+  aadhaar_number: "",
   email: "",
   phone: "",
   alt_phone: "",
@@ -77,6 +85,7 @@ const EMPTY = {
   qualification: "",
   year_of_passing: "",
   course: "",
+  preferred_training_location: "",
   employment_status: "",
   family_income: "",
   heard_from: "",
@@ -148,8 +157,6 @@ function RegisterPage() {
     setSubmitting(true);
     const d = parsed.data;
 
-    // Supabase has constraints - preferred_centre is required as per migration script.
-    // Since center selection is removed, we default to "VTU - SDC@Bengaluru"
     const { error } = await supabase.from("vtu_minority_registrations").insert({
       full_name: d.full_name,
       father_name: d.father_name || null,
@@ -166,7 +173,7 @@ function RegisterPage() {
       qualification: d.qualification,
       year_of_passing: d.year_of_passing || null,
       course: d.course,
-      preferred_centre: "VTU - SDC@Bengaluru",
+      preferred_centre: d.preferred_training_location,
       employment_status: d.employment_status || null,
       family_income: d.family_income || null,
       heard_from: d.heard_from || null,
@@ -182,33 +189,76 @@ function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
 
-      <section className="bg-navy-deep py-10">
-        <div className="mx-auto max-w-4xl px-4 text-center">
-          <h1 className="font-display text-2xl font-bold text-navy-foreground sm:text-4xl">
+      {/* Title section directly below the navbar */}
+      <section className="bg-navy-deep py-5 sm:py-7 border-b border-navy-deep/20 shadow-xs">
+        <div className="mx-auto max-w-4xl px-3 sm:px-6 text-center">
+          <h1 className="font-display text-lg sm:text-2xl md:text-3xl font-bold text-navy-foreground tracking-tight leading-snug">
             Minority Skill Development Training - Registration Form
           </h1>
-          <p className="mt-3 text-sm text-navy-foreground/75">
-            Free job-oriented training at VTU Skill Development Centres for candidates from notified
-            minority communities: Muslim, Christian, Jain, Sikh, Buddhist and Parsi.
+          <p className="mt-2 text-xs sm:text-sm text-navy-foreground/90 font-medium">
+            Free job-oriented training programmes for candidates from notified minority communities:
           </p>
+          {/* Minority Communities formatted as 3 and 3 in 2 clean rows */}
+          <div className="mt-3.5 flex flex-col items-center gap-2.5">
+            {/* Row 1: Muslim, Christian, Jain */}
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xs px-3.5 py-1 rounded-full border border-white/15 min-w-[105px] sm:min-w-[120px] justify-center">
+                <span className="h-2 w-2 rounded-full bg-lime shrink-0 shadow-xs" />
+                <span className="text-xs sm:text-sm font-semibold text-white">Muslim</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xs px-3.5 py-1 rounded-full border border-white/15 min-w-[105px] sm:min-w-[120px] justify-center">
+                <span className="h-2 w-2 rounded-full bg-lime shrink-0 shadow-xs" />
+                <span className="text-xs sm:text-sm font-semibold text-white">Christian</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xs px-3.5 py-1 rounded-full border border-white/15 min-w-[105px] sm:min-w-[120px] justify-center">
+                <span className="h-2 w-2 rounded-full bg-lime shrink-0 shadow-xs" />
+                <span className="text-xs sm:text-sm font-semibold text-white">Jain</span>
+              </div>
+            </div>
+
+            {/* Row 2: Sikh, Buddhist, Parsi */}
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xs px-3.5 py-1 rounded-full border border-white/15 min-w-[105px] sm:min-w-[120px] justify-center">
+                <span className="h-2 w-2 rounded-full bg-lime shrink-0 shadow-xs" />
+                <span className="text-xs sm:text-sm font-semibold text-white">Sikh</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xs px-3.5 py-1 rounded-full border border-white/15 min-w-[105px] sm:min-w-[120px] justify-center">
+                <span className="h-2 w-2 rounded-full bg-lime shrink-0 shadow-xs" />
+                <span className="text-xs sm:text-sm font-semibold text-white">Buddhist</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-xs px-3.5 py-1 rounded-full border border-white/15 min-w-[105px] sm:min-w-[120px] justify-center">
+                <span className="h-2 w-2 rounded-full bg-lime shrink-0 shadow-xs" />
+                <span className="text-xs sm:text-sm font-semibold text-white">Parsi</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <main className="mx-auto max-w-4xl px-4 py-12">
+      {/* Campus photo banner below the title section */}
+      <div className="relative w-full h-36 sm:h-56 md:h-72 lg:h-96 overflow-hidden border-b border-gray-200 shadow-inner">
+        <img
+          src={campusBg}
+          alt="VTU Belagavi campus"
+          className="w-full h-full object-cover object-center"
+        />
+      </div>
+
+      <main className="mx-auto max-w-4xl px-3 sm:px-6 py-6 sm:py-10">
         {done ? (
-          <div className="rounded-lg border border-border bg-card p-10 text-center shadow-panel">
-            <h2 className="section-title">Application submitted</h2>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Thank you. Your registration has been recorded. The VTU Skill Development Centre team
+          <div className="rounded-xl border border-border bg-card p-6 sm:p-10 text-center shadow-panel">
+            <h2 className="section-title text-xl sm:text-2xl">Application submitted</h2>
+            <p className="mt-3 text-xs sm:text-sm text-muted-foreground">
+              Thank you. Your registration has been recorded. The Skill Development Centre team
               will contact you on the mobile number provided.
             </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <div className="mt-6 sm:mt-8 flex flex-wrap justify-center gap-3">
               <button
                 type="button"
-                className="btn-primary"
+                className="btn-primary w-full sm:w-auto"
                 onClick={() => {
                   setForm(EMPTY);
                   setDone(false);
@@ -222,7 +272,7 @@ function RegisterPage() {
           <form
             onSubmit={onSubmit}
             noValidate
-            className="space-y-10 rounded-lg border border-border bg-card p-6 shadow-panel sm:p-10"
+            className="space-y-8 sm:space-y-10 rounded-xl border border-border bg-card p-4 sm:p-8 md:p-10 shadow-panel"
           >
             <fieldset className="space-y-5">
               <legend className="section-title mb-3">1. Personal details</legend>
@@ -233,6 +283,7 @@ function RegisterPage() {
                     value={form.full_name}
                     onChange={(e) => set("full_name", e.target.value)}
                     maxLength={120}
+                    placeholder="Enter full name"
                   />
                 </Field>
                 <Field label="Father's / Guardian's name" error={errors['father_name']}>
@@ -241,6 +292,16 @@ function RegisterPage() {
                     value={form.father_name}
                     onChange={(e) => set("father_name", e.target.value)}
                     maxLength={120}
+                    placeholder="Enter father / guardian name"
+                  />
+                </Field>
+                <Field label="Mother's name" error={errors['mother_name']}>
+                  <input
+                    className="field-input"
+                    value={form.mother_name}
+                    onChange={(e) => set("mother_name", e.target.value)}
+                    maxLength={120}
+                    placeholder="Enter mother's name"
                   />
                 </Field>
                 <Field label="Gender" required error={errors['gender']}>
@@ -249,7 +310,7 @@ function RegisterPage() {
                     value={form.gender}
                     onChange={(e) => set("gender", e.target.value)}
                   >
-                    <option value="">Choose</option>
+                    <option value="">Choose Gender</option>
                     {["Female", "Male", "Other"].map((g) => (
                       <option key={g} value={g}>
                         {g}
@@ -263,6 +324,29 @@ function RegisterPage() {
                     className="field-input"
                     value={form.date_of_birth}
                     onChange={(e) => set("date_of_birth", e.target.value)}
+                  />
+                </Field>
+                <Field label="Aadhaar Number" required error={errors['aadhaar_number']}>
+                  <input
+                    inputMode="numeric"
+                    className="field-input"
+                    value={form.aadhaar_number}
+                    onKeyDown={(e) => {
+                      // Allow navigation and deletion keys
+                      if (
+                        ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight"].includes(e.key) ||
+                        (e.ctrlKey && ["a", "c", "v", "x"].includes(e.key.toLowerCase()))
+                      ) {
+                        return;
+                      }
+                      // Block any non-digit
+                      if (!/^[0-9]$/.test(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => set("aadhaar_number", e.target.value.replace(/\D/g, "").slice(0, 12))}
+                    placeholder="Enter 12-digit Aadhaar number"
+                    maxLength={12}
                   />
                 </Field>
                 <Field label="Minority community (caste)" required error={errors['religion']}>
@@ -292,6 +376,32 @@ function RegisterPage() {
                       </option>
                     ))}
                   </select>
+                </Field>
+                <Field label="Specially abled (PWD)" required error={errors['specially_abled']}>
+                  <div className="flex items-center gap-6 pt-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="radio"
+                        name="specially_abled"
+                        value="Yes"
+                        checked={form.specially_abled === "Yes"}
+                        onChange={() => set("specially_abled", "Yes")}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                      />
+                      <span>Yes</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="radio"
+                        name="specially_abled"
+                        value="No"
+                        checked={form.specially_abled === "No"}
+                        onChange={() => set("specially_abled", "No")}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                      />
+                      <span>No</span>
+                    </label>
+                  </div>
                 </Field>
               </div>
             </fieldset>
@@ -395,18 +505,14 @@ function RegisterPage() {
                   </select>
                 </Field>
                 <Field label="Year of passing" required error={errors['year_of_passing']}>
-                  <select
+                  <input
+                    inputMode="numeric"
                     className="field-input"
                     value={form.year_of_passing}
-                    onChange={(e) => set("year_of_passing", e.target.value)}
-                  >
-                    <option value="">Choose Year</option>
-                    {PASSING_YEARS.map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(e) => set("year_of_passing", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    placeholder="e.g. 2022"
+                    maxLength={4}
+                  />
                 </Field>
                 <Field label="Course applied for" required error={errors['course']}>
                   <select
@@ -417,7 +523,21 @@ function RegisterPage() {
                     <option value="">Choose a course</option>
                     {COURSES.map((c) => (
                       <option key={c.id} value={c.name}>
-                        {c.id}. {c.name}
+                        {c.id}. {c.name} ({c.criteria})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Preferred training location" required error={errors['preferred_training_location']}>
+                  <select
+                    className="field-input"
+                    value={form.preferred_training_location}
+                    onChange={(e) => set("preferred_training_location", e.target.value)}
+                  >
+                    <option value="">Choose Training Location</option>
+                    {KARNATAKA_DISTRICTS.map((district) => (
+                      <option key={district} value={district}>
+                        {district}
                       </option>
                     ))}
                   </select>
@@ -426,7 +546,7 @@ function RegisterPage() {
               {selectedCourse && (
                 <p className="rounded-md bg-muted px-4 py-3 text-sm text-navy">
                   Qualification criteria for <strong>{selectedCourse.name}</strong>:{" "}
-                  {selectedCourse.criteria}
+                  <span className="font-semibold">{selectedCourse.criteria}</span>
                 </p>
               )}
               <div className="grid gap-5 sm:grid-cols-2">
@@ -570,12 +690,9 @@ function RegisterPage() {
                 <p className="text-xs text-destructive">{errors['declaration']}</p>
               )}
               {serverError && <p className="text-sm text-destructive">{serverError}</p>}
-              <div className="flex flex-wrap gap-3">
-                <button type="submit" className="btn-primary" disabled={submitting}>
+              <div className="pt-2">
+                <button type="submit" className="btn-primary w-full sm:w-auto" disabled={submitting}>
                   {submitting ? "Submitting…" : "Submit application"}
-                </button>
-                <button type="button" className="btn-lime" onClick={() => setForm(EMPTY)}>
-                  Clear form
                 </button>
               </div>
             </div>
