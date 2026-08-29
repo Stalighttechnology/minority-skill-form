@@ -125,6 +125,7 @@ function RegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [generatedRefNo, setGeneratedRefNo] = useState("");
   const [serverError, setServerError] = useState("");
 
   const set = (key: string, value: string | boolean) =>
@@ -157,7 +158,22 @@ function RegisterPage() {
     setSubmitting(true);
     const d = parsed.data;
 
+    // Generate continuous sequential reference number: VTU2026MSD001, VTU2026MSD002, etc.
+    let newRefNo = "";
+    try {
+      const { count } = await supabase
+        .from("vtu_minority_registrations")
+        .select("*", { count: "exact", head: true });
+      const nextSeq = (count || 0) + 1;
+      const currentYear = new Date().getFullYear();
+      newRefNo = `VTU${currentYear}MSD${String(nextSeq).padStart(3, "0")}`;
+    } catch {
+      const currentYear = new Date().getFullYear();
+      newRefNo = `VTU${currentYear}MSD001`;
+    }
+
     const { error, data } = await supabase.from("vtu_minority_registrations").insert({
+      reference_no: newRefNo,
       full_name: d.full_name,
       father_name: d.father_name || null,
       mother_name: d.mother_name || null,
@@ -181,7 +197,12 @@ function RegisterPage() {
       family_income: d.family_income || null,
       heard_from: d.heard_from || null,
       remarks: d.remarks || null,
+      passport_photo_url: d.passport_photo || null,
+      aadhaar_card_url: d.aadhaar_card || null,
+      caste_income_cert_url: d.caste_income_cert || null,
+      highest_qualification_cert_url: d.highest_qualification_cert || null,
       declaration: true,
+      status: "Pending",
     } as any);
     
     setSubmitting(false);
@@ -192,6 +213,7 @@ function RegisterPage() {
       return;
     }
 
+    setGeneratedRefNo(newRefNo);
     setDone(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -257,18 +279,39 @@ function RegisterPage() {
 
       <main className="mx-auto max-w-4xl px-3 sm:px-6 py-6 sm:py-10">
         {done ? (
-          <div className="rounded-xl border border-border bg-card p-6 sm:p-10 text-center shadow-panel">
-            <h2 className="section-title text-xl sm:text-2xl">Application submitted</h2>
-            <p className="mt-3 text-xs sm:text-sm text-muted-foreground">
-              Thank you. Your registration has been recorded. The Skill Development Centre team
-              will contact you on the mobile number provided.
+          <div className="rounded-2xl border border-border bg-card p-6 sm:p-10 text-center shadow-panel animate-in fade-in zoom-in-95">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 text-emerald-600 mb-4 shadow-xs">
+              <svg className="h-9 w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            
+            <h2 className="section-title text-xl sm:text-2xl text-emerald-800">Application Submitted Successfully</h2>
+            
+            {/* Candidate Unique Reference Number Card */}
+            <div className="mt-5 p-4 sm:p-5 max-w-md mx-auto rounded-xl bg-slate-50 border-2 border-dashed border-navy/30 text-center">
+              <span className="text-xs uppercase tracking-wider font-semibold text-slate-500 block">
+                Candidate Application Reference Number
+              </span>
+              <div className="mt-1 font-mono text-xl sm:text-2xl font-extrabold text-navy tracking-wide select-all">
+                {generatedRefNo}
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                Please save or note down this reference number for future communication and status tracking.
+              </p>
+            </div>
+
+            <p className="mt-4 text-xs sm:text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
+              Thank you for applying. Your registration has been recorded under the VTU Minority Skill Development Programme. The Skill Development Centre team will contact you on your registered mobile number.
             </p>
+
             <div className="mt-6 sm:mt-8 flex flex-wrap justify-center gap-3">
               <button
                 type="button"
                 className="btn-primary w-full sm:w-auto"
                 onClick={() => {
                   setForm(EMPTY);
+                  setGeneratedRefNo("");
                   setDone(false);
                 }}
               >
