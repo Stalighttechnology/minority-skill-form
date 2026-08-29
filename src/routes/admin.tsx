@@ -384,6 +384,7 @@ export function AdminDashboard() {
       "Course Applied",
       "Training Location",
       "Status",
+      "Status Reason",
       "Registered On",
     ];
 
@@ -407,6 +408,7 @@ export function AdminDashboard() {
       `"${r.course || ""}"`,
       `"${r.preferred_centre || ""}"`,
       `"${r.status || "Pending"}"`,
+      `"${r.status_reason || ""}"`,
       `"${new Date(r.created_at).toLocaleString()}"`,
     ]);
 
@@ -414,7 +416,8 @@ export function AdminDashboard() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `vtu_minority_registrations_${new Date().toISOString().split("T")[0]}.csv`);
+    const statusSuffix = statusFilter !== "All" ? `_${statusFilter.toLowerCase()}` : "";
+    link.setAttribute("download", `vtu_minority_registrations${statusSuffix}_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -638,24 +641,42 @@ export function AdminDashboard() {
               />
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2">
+            {/* Quick Actions & Status Filter in Middle */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Prominent Status Filter Dropdown */}
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+                <span className="text-xs font-semibold text-slate-600 shrink-0">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="text-xs rounded border border-slate-300 py-1 px-2 bg-white text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-navy"
+                >
+                  <option value="All">All Statuses ({registrations.length})</option>
+                  <option value="Pending">⏳ Pending ({stats.pending})</option>
+                  <option value="Approved">✅ Approved ({stats.approved})</option>
+                  <option value="Rejected">❌ Rejected ({stats.rejected})</option>
+                </select>
+              </div>
+
+              {/* Refresh Button */}
               <button
                 onClick={fetchRegistrations}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-700 transition-colors"
                 title="Refresh application data"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </button>
 
+              {/* Export CSV (Based on Filter) */}
               <button
                 onClick={exportToCSV}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold text-white transition-colors shadow-xs"
+                title={`Export ${filteredRegistrations.length} filtered applications to CSV`}
               >
                 <Download className="h-3.5 w-3.5" />
-                Export CSV
+                Export CSV {statusFilter !== "All" ? `(${statusFilter})` : `(${filteredRegistrations.length})`}
               </button>
             </div>
           </div>
