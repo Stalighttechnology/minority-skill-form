@@ -157,7 +157,7 @@ function RegisterPage() {
     setSubmitting(true);
     const d = parsed.data;
 
-    const { error } = await supabase.from("vtu_minority_registrations").insert({
+    const { error, data } = await supabase.from("vtu_minority_registrations").insert({
       full_name: d.full_name,
       father_name: d.father_name || null,
       mother_name: d.mother_name || null,
@@ -183,10 +183,15 @@ function RegisterPage() {
       remarks: d.remarks || null,
       declaration: true,
     } as any);
+    
     setSubmitting(false);
+
     if (error) {
       console.error("Supabase submission error:", error);
+      setServerError(`Submission failed: ${error.message || "Please check your database table or permissions in Supabase"}`);
+      return;
     }
+
     setDone(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
