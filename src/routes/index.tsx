@@ -160,9 +160,12 @@ function RegisterPage() {
     const { error } = await supabase.from("vtu_minority_registrations").insert({
       full_name: d.full_name,
       father_name: d.father_name || null,
+      mother_name: d.mother_name || null,
       gender: d.gender,
       date_of_birth: d.date_of_birth,
       religion: d.religion,
+      specially_abled: d.specially_abled || "No",
+      aadhaar_number: d.aadhaar_number || null,
       email: d.email,
       phone: d.phone,
       alt_phone: d.alt_phone || null,
@@ -179,7 +182,7 @@ function RegisterPage() {
       heard_from: d.heard_from || null,
       remarks: d.remarks || null,
       declaration: true,
-    });
+    } as any);
     setSubmitting(false);
     if (error) {
       console.error("Supabase submission error:", error);
