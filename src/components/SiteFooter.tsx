@@ -1,4 +1,4 @@
-import { Mail, Phone, MapPin, Globe, Facebook, Twitter } from "lucide-react";
+import { Phone, Globe, Facebook, Twitter } from "lucide-react";
 import circularLogo from "@/assets/vtu_logo.png";
 
 export function SiteFooter() {
@@ -30,22 +30,6 @@ export function SiteFooter() {
               Contact & Location
             </h4>
             <ul className="space-y-3 text-xs text-slate-400">
-              <li className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-lime" />
-                <span>
-                  <strong>Office</strong>
-                  <br />
-                  No. 130, 1st Block, Dr. Rajkumar Road
-                  <br />
-                  Rajajinagar, Bengaluru-560010
-                </span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail className="h-4 w-4 shrink-0 text-lime" />
-                <a href="mailto:info@eduforcareer.com" className="hover:text-white transition-colors">
-                  info@eduforcareer.com
-                </a>
-              </li>
               <li className="flex items-center gap-3">
                 <Phone className="h-4 w-4 shrink-0 text-lime" />
                 <a href="tel:+917760826949" className="hover:text-white transition-colors">
