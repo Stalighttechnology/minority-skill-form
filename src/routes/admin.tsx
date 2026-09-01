@@ -77,14 +77,29 @@ interface Registration {
   created_at: string;
 }
 
-export const REASON_OPTIONS = [
-  "Missing Document",
-  "Wrong / Invalid Document",
-  "Wrong Details / Discrepancy",
-  "Not Eligible / Criteria Mismatch",
-  "Aadhaar / Caste Certificate Expired",
-  "Incomplete Information",
-  "Other",
+export const PENDING_REASON_OPTIONS = [
+  "Wrong document uploaded",
+  "Document not clear / blurred",
+  "Document expired / Validity overdue",
+  "Caste validity expired",
+  "Aadhaar card not clear / missing",
+  "Income certificate expired / blurred",
+  "Wrong details entered in form",
+  "Marks / Qualification certificate unclear",
+  "Incomplete candidate information",
+  "Under review / Document re-upload requested",
+  "Other / Custom Note",
+] as const;
+
+export const REJECT_REASON_OPTIONS = [
+  "Not eligible / Age criteria mismatch",
+  "Caste / Minority criteria mismatch",
+  "Qualification criteria not met",
+  "Duplicate registration found",
+  "Fake / Invalid documents detected",
+  "Non-Karnataka domicile / Out of state",
+  "Candidate requested cancellation",
+  "Other / Custom Note",
 ] as const;
 
 export function AdminDashboard() {
@@ -113,12 +128,36 @@ export function AdminDashboard() {
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
 
+  // Read/Viewed tracking persisted in localStorage
+  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("vtu_admin_viewed_ids");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const [verificationFilter, setVerificationFilter] = useState<"All" | "Unread" | "Viewed">("All");
+
+  const markAsViewed = (id: string) => {
+    setViewedIds((prev) => {
+      const next = new Set(prev).add(id);
+      try {
+        localStorage.setItem("vtu_admin_viewed_ids", JSON.stringify(Array.from(next)));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
   // Status Change Dialog with Reason
   const [statusChangeModal, setStatusChangeModal] = useState<{
     app: Registration;
     targetStatus: "Approved" | "Pending" | "Rejected";
   } | null>(null);
-  const [selectedReason, setSelectedReason] = useState<string>("Missing Document");
+  const [selectedReason, setSelectedReason] = useState<string>("Wrong document uploaded");
   const [customReasonText, setCustomReasonText] = useState<string>("");
 
   // Secure SHA-256 helper for client-side password hashing
@@ -197,36 +236,42 @@ export function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchRegistrations();
+    if (!isAuthenticated) return;
 
-      const channel = supabase
-        .channel("admin-registrations-sync")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "vtu_minority_registrations" },
-          () => {
-            fetchRegistrations();
-          }
-        )
-        .subscribe();
+    fetchRegistrations();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
+    const channel = supabase
+      .channel("admin-registrations-sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "vtu_minority_registrations" },
+        () => {
+          fetchRegistrations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [isAuthenticated]);
 
   // Open Status Change Dialog
   const openStatusChange = (app: Registration, targetStatus: "Approved" | "Pending" | "Rejected") => {
+    markAsViewed(app.id);
     if (targetStatus === "Approved") {
       // Direct approve
       handleStatusUpdate(app.id, "Approved", null);
-    } else {
-      // Open Reason selection modal
-      setSelectedReason("Missing Document");
+    } else if (targetStatus === "Pending") {
+      // Open Pending Reason selection modal
+      setSelectedReason("Wrong document uploaded");
       setCustomReasonText("");
-      setStatusChangeModal({ app, targetStatus });
+      setStatusChangeModal({ app, targetStatus: "Pending" });
+    } else {
+      // Open Reject Reason selection modal
+      setSelectedReason("Not eligible / Age criteria mismatch");
+      setCustomReasonText("");
+      setStatusChangeModal({ app, targetStatus: "Rejected" });
     }
   };
 
@@ -234,7 +279,7 @@ export function AdminDashboard() {
   const handleStatusUpdate = async (id: string, newStatus: string, reason?: string | null) => {
     setUpdatingStatusId(id);
     try {
-      const finalReason = newStatus === "Approved" ? null : reason;
+      const finalReason = newStatus === "Approved" ? null : (reason ?? null);
       const { error } = await supabase
         .from("vtu_minority_registrations")
         .update({ status: newStatus, status_reason: finalReason } as any)
@@ -248,7 +293,7 @@ export function AdminDashboard() {
           prev.map((r) => (r.id === id ? { ...r, status: newStatus, status_reason: finalReason } : r))
         );
         if (viewingApp && viewingApp.id === id) {
-          setViewingApp({ ...viewingApp, status: newStatus, status_reason: finalReason });
+          setViewingApp((prev) => (prev ? { ...prev, status: newStatus, status_reason: finalReason } : null));
         }
         setStatusChangeModal(null);
       }
@@ -261,7 +306,8 @@ export function AdminDashboard() {
 
   const confirmStatusChangeWithReason = () => {
     if (!statusChangeModal) return;
-    const finalReason = selectedReason === "Other" && customReasonText.trim()
+    const isOther = selectedReason.startsWith("Other");
+    const finalReason = isOther && customReasonText.trim()
       ? `Other: ${customReasonText.trim()}`
       : selectedReason;
     handleStatusUpdate(statusChangeModal.app.id, statusChangeModal.targetStatus, finalReason);
@@ -440,11 +486,17 @@ export function AdminDashboard() {
           (statusFilter === "Pending" && (!r.status || r.status === "Pending")) ||
           r.status === statusFilter;
 
+        const isViewed = viewedIds.has(r.id);
+        const matchesVerification =
+          verificationFilter === "All" ||
+          (verificationFilter === "Viewed" && isViewed) ||
+          (verificationFilter === "Unread" && !isViewed);
+
         const matchesCourse = courseFilter === "All" || r.course === courseFilter;
         const matchesLocation = locationFilter === "All" || r.preferred_centre === locationFilter;
         const matchesCaste = casteFilter === "All" || r.religion === casteFilter;
 
-        return matchesSearch && matchesStatus && matchesCourse && matchesLocation && matchesCaste;
+        return matchesSearch && matchesStatus && matchesVerification && matchesCourse && matchesLocation && matchesCaste;
       })
       .sort((a, b) => {
         let valA: any = a[sortBy] || "";
@@ -459,7 +511,7 @@ export function AdminDashboard() {
         if (valA > valB) return sortOrder === "asc" ? 1 : -1;
         return 0;
       });
-  }, [registrations, searchTerm, statusFilter, courseFilter, locationFilter, casteFilter, sortBy, sortOrder]);
+  }, [registrations, searchTerm, statusFilter, verificationFilter, viewedIds, courseFilter, locationFilter, casteFilter, sortBy, sortOrder]);
 
   // Statistics Summary
   const stats = useMemo(() => {
@@ -467,8 +519,10 @@ export function AdminDashboard() {
     const approved = registrations.filter((r) => r.status === "Approved").length;
     const rejected = registrations.filter((r) => r.status === "Rejected").length;
     const pending = total - approved - rejected;
-    return { total, approved, rejected, pending };
-  }, [registrations]);
+    const viewedCount = registrations.filter((r) => viewedIds.has(r.id)).length;
+    const unreadCount = total - viewedCount;
+    return { total, approved, rejected, pending, viewedCount, unreadCount };
+  }, [registrations, viewedIds]);
 
   // Login Screen
   if (!isAuthenticated) {
@@ -584,44 +638,64 @@ export function AdminDashboard() {
         )}
 
         {/* Statistics Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex items-center gap-4">
-            <div className="h-12 w-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Users className="h-6 w-6" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500">Total Applications</p>
-              <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+              <p className="text-[11px] font-medium text-slate-500">Total</p>
+              <p className="text-xl font-bold text-slate-900">{stats.total}</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex items-center gap-4">
-            <div className="h-12 w-12 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-              <Clock className="h-6 w-6" />
+          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500">Pending Review</p>
-              <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+              <p className="text-[11px] font-medium text-slate-500">Pending</p>
+              <p className="text-xl font-bold text-amber-600">{stats.pending}</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex items-center gap-4">
-            <div className="h-12 w-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-6 w-6" />
+          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500">Approved</p>
-              <p className="text-2xl font-bold text-emerald-600">{stats.approved}</p>
+              <p className="text-[11px] font-medium text-slate-500">Approved</p>
+              <p className="text-xl font-bold text-emerald-600">{stats.approved}</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex items-center gap-4">
-            <div className="h-12 w-12 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
-              <XCircle className="h-6 w-6" />
+          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+              <XCircle className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500">Rejected</p>
-              <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+              <p className="text-[11px] font-medium text-slate-500">Rejected</p>
+              <p className="text-xl font-bold text-red-600">{stats.rejected}</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-3.5 border border-indigo-100 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 font-bold text-xs">
+              👁️
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-indigo-700">Viewed</p>
+              <p className="text-xl font-bold text-indigo-700">{stats.viewedCount}</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-3.5 border border-violet-100 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 font-bold text-xs">
+              📩
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-violet-700">Unread</p>
+              <p className="text-xl font-bold text-violet-700">{stats.unreadCount}</p>
             </div>
           </div>
         </div>
@@ -682,7 +756,7 @@ export function AdminDashboard() {
           </div>
 
           {/* Filter Dropdowns */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-100">
             {/* Status Filter */}
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-slate-500 shrink-0">Status:</span>
@@ -692,9 +766,23 @@ export function AdminDashboard() {
                 className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
               >
                 <option value="All">All Statuses</option>
-                <option value="Pending">Pending Review</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
+                <option value="Pending">⏳ Pending Review</option>
+                <option value="Approved">✅ Approved</option>
+                <option value="Rejected">❌ Rejected</option>
+              </select>
+            </div>
+
+            {/* Verification / Review State Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500 shrink-0">Review:</span>
+              <select
+                value={verificationFilter}
+                onChange={(e) => setVerificationFilter(e.target.value as any)}
+                className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
+              >
+                <option value="All">All Applications</option>
+                <option value="Unread">📩 Unread / New ({stats.unreadCount})</option>
+                <option value="Viewed">👁️ Viewed / Opened ({stats.viewedCount})</option>
               </select>
             </div>
 
@@ -793,7 +881,18 @@ export function AdminDashboard() {
 
                       {/* Candidate Name & Contact */}
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-900">{app.full_name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-900">{app.full_name}</span>
+                          {!viewedIds.has(app.id) ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700 border border-violet-200">
+                              NEW
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400" title="Application Viewed">
+                              👁️
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
                           <span>📱 {app.phone}</span>
                           <span>•</span>
@@ -849,7 +948,10 @@ export function AdminDashboard() {
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => setViewingApp(app)}
+                            onClick={() => {
+                              markAsViewed(app.id);
+                              setViewingApp(app);
+                            }}
                             className="p-1.5 text-slate-600 hover:text-navy hover:bg-slate-100 rounded-md transition-colors"
                             title="View Full Application"
                           >
@@ -864,38 +966,45 @@ export function AdminDashboard() {
                             <Edit className="h-4 w-4" />
                           </button>
 
-                          {/* Quick Action: Approve */}
-                          {app.status !== "Approved" && (
-                            <button
-                              onClick={() => openStatusChange(app, "Approved")}
-                              disabled={updatingStatusId === app.id}
-                              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[11px] font-semibold border border-emerald-200 transition-colors"
-                            >
-                              Approve
-                            </button>
-                          )}
+                          {/* Always Show All 3 Status Action Buttons */}
+                          <button
+                            onClick={() => openStatusChange(app, "Approve" as any === "Approve" ? "Approved" : "Approved")}
+                            disabled={updatingStatusId === app.id}
+                            className={`px-2 py-1 rounded text-[11px] font-semibold border transition-colors ${
+                              app.status === "Approved"
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                            }`}
+                            title="Approve Application"
+                          >
+                            Approve
+                          </button>
 
-                          {/* Quick Action: Mark Pending with Reason */}
-                          {app.status !== "Pending" && (
-                            <button
-                              onClick={() => openStatusChange(app, "Pending")}
-                              disabled={updatingStatusId === app.id}
-                              className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[11px] font-semibold border border-amber-200 transition-colors"
-                            >
-                              Pending
-                            </button>
-                          )}
+                          <button
+                            onClick={() => openStatusChange(app, "Pending")}
+                            disabled={updatingStatusId === app.id}
+                            className={`px-2 py-1 rounded text-[11px] font-semibold border transition-colors ${
+                              app.status === "Pending"
+                                ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
+                            }`}
+                            title="Mark as Pending with discrepancy reason"
+                          >
+                            Pending
+                          </button>
 
-                          {/* Quick Action: Reject with Reason */}
-                          {app.status !== "Rejected" && (
-                            <button
-                              onClick={() => openStatusChange(app, "Rejected")}
-                              disabled={updatingStatusId === app.id}
-                              className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded text-[11px] font-semibold border border-red-200 transition-colors"
-                            >
-                              Reject
-                            </button>
-                          )}
+                          <button
+                            onClick={() => openStatusChange(app, "Rejected")}
+                            disabled={updatingStatusId === app.id}
+                            className={`px-2 py-1 rounded text-[11px] font-semibold border transition-colors ${
+                              app.status === "Rejected"
+                                ? "bg-red-600 text-white border-red-600 shadow-xs"
+                                : "bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                            }`}
+                            title="Reject Application with reason"
+                          >
+                            Reject
+                          </button>
 
                           {/* Delete Application (Admin Only) */}
                           <button
@@ -1262,7 +1371,43 @@ export function AdminDashboard() {
                 Delete Application
               </button>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {/* Always Show All 3 Status Buttons */}
+                <button
+                  onClick={() => openStatusChange(viewingApp, "Approved")}
+                  disabled={updatingStatusId === viewingApp.id}
+                  className={`px-3 py-2 font-semibold rounded-lg text-xs border transition-colors ${
+                    viewingApp.status === "Approved"
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                  }`}
+                >
+                  ✓ Approve
+                </button>
+
+                <button
+                  onClick={() => openStatusChange(viewingApp, "Pending")}
+                  disabled={updatingStatusId === viewingApp.id}
+                  className={`px-3 py-2 font-semibold rounded-lg text-xs border transition-colors ${
+                    viewingApp.status === "Pending"
+                      ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                      : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
+                  }`}
+                >
+                  ⏳ Pending
+                </button>
+
+                <button
+                  onClick={() => openStatusChange(viewingApp, "Rejected")}
+                  disabled={updatingStatusId === viewingApp.id}
+                  className={`px-3 py-2 font-semibold rounded-lg text-xs border transition-colors ${
+                    viewingApp.status === "Rejected"
+                      ? "bg-red-600 text-white border-red-600 shadow-xs"
+                      : "bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                  }`}
+                >
+                  ✕ Reject
+                </button>
                 <button
                   onClick={() => {
                     setEditingApp({ ...viewingApp });
@@ -1921,14 +2066,14 @@ export function AdminDashboard() {
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1.5">
-                  Select Reason *
+                  Select {statusChangeModal.targetStatus === "Pending" ? "Pending / Verification Reason" : "Rejection Reason"} *
                 </label>
                 <select
                   value={selectedReason}
                   onChange={(e) => setSelectedReason(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-navy outline-none"
+                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-navy outline-none font-medium"
                 >
-                  {REASON_OPTIONS.map((opt) => (
+                  {(statusChangeModal.targetStatus === "Pending" ? PENDING_REASON_OPTIONS : REJECT_REASON_OPTIONS).map((opt) => (
                     <option key={opt} value={opt}>
                       {opt}
                     </option>
@@ -1936,7 +2081,7 @@ export function AdminDashboard() {
                 </select>
               </div>
 
-              {selectedReason === "Other" && (
+              {selectedReason.startsWith("Other") && (
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
                     Provide Custom Details / Remarks
