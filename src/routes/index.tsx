@@ -128,6 +128,14 @@ function RegisterPage() {
   const [generatedRefNo, setGeneratedRefNo] = useState("");
   const [serverError, setServerError] = useState("");
 
+  const [duplicateModalInfo, setDuplicateModalInfo] = useState<{
+    isOpen: boolean;
+    referenceNo?: string;
+    appliedDate?: string;
+    candidateName?: string;
+    aadhaarLast4?: string;
+  } | null>(null);
+
   const set = (key: string, value: string | boolean) =>
     setForm((f) => ({ ...f, [key]: value }));
 
@@ -157,6 +165,41 @@ function RegisterPage() {
     setErrors({});
     setSubmitting(true);
     const d = parsed.data;
+
+    // Check for duplicate Aadhaar number submission
+    try {
+      const cleanedAadhaar = d.aadhaar_number.trim();
+      const { data: existingApp, error: dupCheckErr } = await (supabase.from("vtu_minority_registrations") as any)
+        .select("id, reference_no, full_name, created_at, aadhaar_number")
+        .eq("aadhaar_number", cleanedAadhaar)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (dupCheckErr) {
+        console.warn("Duplicate check warning:", dupCheckErr);
+      }
+
+      if (existingApp) {
+        setSubmitting(false);
+        setDuplicateModalInfo({
+          isOpen: true,
+          referenceNo: (existingApp as any).reference_no || `VTU-MSD-${(existingApp as any).id.slice(0, 8)}`,
+          appliedDate: (existingApp as any).created_at
+            ? new Date((existingApp as any).created_at).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : "Earlier",
+          candidateName: (existingApp as any).full_name || d.full_name,
+          aadhaarLast4: cleanedAadhaar.slice(-4),
+        });
+        return;
+      }
+    } catch (checkErr) {
+      console.error("Duplicate check error:", checkErr);
+    }
 
     // Generate continuous sequential reference number: VTU2026MSD001, VTU2026MSD002, etc.
     let newRefNo = "";
@@ -746,6 +789,93 @@ function RegisterPage() {
           </form>
         )}
       </main>
+
+      {/* Duplicate Aadhaar / Application Already Submitted Modal */}
+      {duplicateModalInfo?.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-5 text-white flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center text-xl shrink-0">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold leading-tight">
+                    Application Already Submitted
+                  </h3>
+                  <p className="text-xs text-amber-100 mt-0.5">
+                    Minority Skill Development Programme — VTU
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDuplicateModalInfo(null)}
+                className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg p-1.5 transition-colors"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 text-slate-700">
+              <div className="p-4 bg-amber-50/80 rounded-xl border border-amber-200/80 text-sm space-y-2">
+                <p className="font-semibold text-amber-950">
+                  This Aadhaar number has already been used to submit an application.
+                </p>
+                <p className="text-xs text-amber-900/90 leading-relaxed">
+                  You cannot submit another application using the same Aadhaar number. Please check your existing application or contact the administrator if you believe this is an error.
+                </p>
+              </div>
+
+              {/* Existing Details Card */}
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2.5 text-xs">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 pb-1 border-b border-slate-200">
+                  Existing Registration Details
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <span className="text-slate-500 block">Candidate Name:</span>
+                    <strong className="text-slate-900 text-sm">{duplicateModalInfo.candidateName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Aadhaar (Ending):</span>
+                    <strong className="text-slate-900 font-mono">•••• •••• {duplicateModalInfo.aadhaarLast4 || "••••"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Reference Number:</span>
+                    <span className="inline-block font-mono font-bold text-navy bg-white px-2 py-0.5 rounded border border-slate-200 mt-0.5">
+                      {duplicateModalInfo.referenceNo}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Submission Date:</span>
+                    <strong className="text-slate-900">{duplicateModalInfo.appliedDate}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <span>ℹ️</span>
+                <span>For any queries or corrections, please contact the VTU Minority Project coordinator.</span>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDuplicateModalInfo(null)}
+                className="px-5 py-2.5 bg-navy text-white text-xs font-semibold rounded-xl hover:bg-navy-deep transition-colors shadow-xs"
+              >
+                Understood / Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SiteFooter />
     </div>
