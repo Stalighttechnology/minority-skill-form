@@ -410,66 +410,99 @@ export function AdminDashboard() {
     }
   };
 
-  // Export CSV
+  // Export CSV (Complete with all fields, documents, and photo URLs)
   const exportToCSV = () => {
-    if (registrations.length === 0) return;
+    if (filteredRegistrations.length === 0) {
+      alert("No applications to export matching current filter.");
+      return;
+    }
     const headers = [
+      "Application ID",
       "Reference No",
       "Full Name",
       "Father Name",
       "Mother Name",
       "Gender",
-      "DOB",
-      "Religion",
-      "Specially Abled",
+      "Date of Birth",
+      "Religion / Community",
+      "Specially Abled (PWD)",
       "Aadhaar Number",
-      "Mobile",
-      "Email",
+      "Mobile Phone",
+      "Alternate Phone",
+      "Email Address",
+      "Full Address",
       "District",
       "Taluk",
       "Pincode",
-      "Qualification",
+      "Highest Qualification",
       "Year of Passing",
       "Course Applied",
-      "Training Location",
-      "Status",
-      "Status Reason",
-      "Registered On",
+      "Training Location Preference",
+      "Employment Status",
+      "Family Annual Income",
+      "Heard From",
+      "Candidate Remarks",
+      "Application Status",
+      "Discrepancy / Rejection Reason",
+      "Passport Photo URL / Data",
+      "Aadhaar Card URL / Data",
+      "Caste & Income Cert URL / Data",
+      "Qualification Cert URL / Data",
+      "Registration Date & Time",
     ];
 
+    const escapeCsv = (val: string | null | undefined): string => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
     const rows = filteredRegistrations.map((r) => [
-      `"${r.reference_no || ""}"`,
-      `"${r.full_name || ""}"`,
-      `"${r.father_name || ""}"`,
-      `"${r.mother_name || ""}"`,
-      `"${r.gender || ""}"`,
-      `"${r.date_of_birth || ""}"`,
-      `"${r.religion || ""}"`,
-      `"${r.specially_abled || "No"}"`,
-      `"${r.aadhaar_number || ""}"`,
-      `"${r.phone || ""}"`,
-      `"${r.email || ""}"`,
-      `"${r.district || ""}"`,
-      `"${r.taluk || ""}"`,
-      `"${r.pincode || ""}"`,
-      `"${r.qualification || ""}"`,
-      `"${r.year_of_passing || ""}"`,
-      `"${r.course || ""}"`,
-      `"${r.preferred_centre || ""}"`,
-      `"${r.status || "Pending"}"`,
-      `"${r.status_reason || ""}"`,
-      `"${new Date(r.created_at).toLocaleString()}"`,
+      escapeCsv(r.id),
+      escapeCsv(r.reference_no),
+      escapeCsv(r.full_name),
+      escapeCsv(r.father_name),
+      escapeCsv(r.mother_name),
+      escapeCsv(r.gender),
+      escapeCsv(r.date_of_birth),
+      escapeCsv(r.religion),
+      escapeCsv(r.specially_abled || "No"),
+      escapeCsv(r.aadhaar_number),
+      escapeCsv(r.phone),
+      escapeCsv(r.alt_phone),
+      escapeCsv(r.email),
+      escapeCsv(r.address),
+      escapeCsv(r.district),
+      escapeCsv(r.taluk),
+      escapeCsv(r.pincode),
+      escapeCsv(r.qualification),
+      escapeCsv(r.year_of_passing),
+      escapeCsv(r.course),
+      escapeCsv(r.preferred_centre),
+      escapeCsv(r.employment_status),
+      escapeCsv(r.family_income),
+      escapeCsv(r.heard_from),
+      escapeCsv(r.remarks),
+      escapeCsv(r.status || "Pending"),
+      escapeCsv(r.status_reason || ""),
+      escapeCsv(r.passport_photo_url || ""),
+      escapeCsv(r.aadhaar_card_url || ""),
+      escapeCsv(r.caste_income_cert_url || ""),
+      escapeCsv(r.highest_qualification_cert_url || ""),
+      escapeCsv(r.created_at ? new Date(r.created_at).toLocaleString("en-IN") : ""),
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = "\uFEFF" + [headers.map((h) => `"${h}"`).join(","), ...rows.map((row) => row.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     const statusSuffix = statusFilter !== "All" ? `_${statusFilter.toLowerCase()}` : "";
-    link.setAttribute("download", `vtu_minority_registrations${statusSuffix}_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `vtu_minority_registrations_all_fields${statusSuffix}_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Filtered & Sorted Registrations
