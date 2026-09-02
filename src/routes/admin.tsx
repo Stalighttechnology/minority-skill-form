@@ -26,6 +26,8 @@ import {
   MapPin,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ArrowUpDown,
   BookOpen,
   UserCheck,
@@ -125,6 +127,15 @@ export function AdminDashboard() {
   const [casteFilter, setCasteFilter] = useState<string>("All");
   const [sortBy, setSortBy] = useState<"created_at" | "full_name" | "reference_no">("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Pagination State (25 items per page default)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+
+  // Reset to page 1 whenever filters or search query change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, courseFilter, locationFilter, casteFilter, sortBy, sortOrder]);
 
   // Modal / Drawer States
   const [viewingApp, setViewingApp] = useState<Registration | null>(null);
@@ -758,6 +769,16 @@ export function AdminDashboard() {
     return { total, approved, rejected, pending, viewedCount, unreadCount };
   }, [registrations, viewedIds]);
 
+  // Pagination Slice
+  const totalItems = filteredRegistrations.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedRegistrations = useMemo(() => {
+    return filteredRegistrations.slice(startIndex, endIndex);
+  }, [filteredRegistrations, startIndex, endIndex]);
+
   // Login Screen
   if (!isAuthenticated) {
     return (
@@ -1097,7 +1118,7 @@ export function AdminDashboard() {
                       Loading applications...
                     </td>
                   </tr>
-                ) : filteredRegistrations.length === 0 ? (
+                ) : paginatedRegistrations.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-500">
                       <FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" />
@@ -1105,7 +1126,7 @@ export function AdminDashboard() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRegistrations.map((app) => (
+                  paginatedRegistrations.map((app) => (
                     <tr key={app.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* Reference No */}
                       <td className="py-3.5 px-4 font-mono font-bold text-navy whitespace-nowrap">
@@ -1258,10 +1279,104 @@ export function AdminDashboard() {
             </table>
           </div>
 
-          <div className="py-3 px-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
-            <span>
-              Showing <strong>{filteredRegistrations.length}</strong> of <strong>{registrations.length}</strong> applications
-            </span>
+          {/* Table Footer with Pagination Controls */}
+          <div className="py-3 px-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* Range and count summary */}
+            <div className="flex items-center gap-3">
+              <span>
+                Showing{" "}
+                <strong className="text-slate-900">
+                  {totalItems === 0 ? 0 : startIndex + 1}
+                </strong>
+                {" - "}
+                <strong className="text-slate-900">{endIndex}</strong> of{" "}
+                <strong className="text-slate-900">{totalItems}</strong> applications
+                {totalItems !== registrations.length && (
+                  <span className="text-slate-400"> (filtered from {registrations.length} total)</span>
+                )}
+              </span>
+
+              {/* Items per page selector */}
+              <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                <span className="text-slate-500 text-[11px]">Rows per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="rounded border border-slate-300 py-0.5 px-1.5 bg-white text-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-navy"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Pagination Button Navigation */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                {/* Previous Button */}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={validCurrentPage === 1}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-xs text-slate-700 transition-colors shadow-2xs"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <span>Previous</span>
+                </button>
+
+                {/* Page Number Pills */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                    // Show first page, last page, current page and pages right next to current page
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      Math.abs(pageNum - validCurrentPage) <= 1
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`min-w-[28px] h-7 px-2 rounded text-xs font-semibold transition-colors ${
+                            validCurrentPage === pageNum
+                              ? "bg-navy text-white shadow-xs"
+                              : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    } else if (
+                      pageNum === validCurrentPage - 2 ||
+                      pageNum === validCurrentPage + 2
+                    ) {
+                      return (
+                        <span key={pageNum} className="text-slate-400 px-1 text-xs select-none">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+
+                {/* Next Button */}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={validCurrentPage === totalPages}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-xs text-slate-700 transition-colors shadow-2xs"
+                  title="Next Page"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
