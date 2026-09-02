@@ -215,6 +215,53 @@ function RegisterPage() {
       newRefNo = `VTU${currentYear}MSD001`;
     }
 
+    // Upload candidate documents to Supabase Storage bucket 'registrations'
+    const uploadDocToStorage = async (base64OrData: string, docKey: string): Promise<string> => {
+      if (!base64OrData) return "";
+      if (base64OrData.startsWith("http")) return base64OrData;
+      try {
+        const matches = base64OrData.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          const mime = matches[1];
+          const b64 = matches[2];
+          const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "jpg";
+          const fileName = `${newRefNo || Date.now()}_${docKey}_${Date.now()}.${ext}`;
+          
+          // Convert base64 to Blob
+          const byteCharacters = atob(b64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: mime });
+
+          const { error: upErr } = await supabase.storage
+            .from("registrations")
+            .upload(fileName, blob, { contentType: mime, upsert: true });
+
+          if (!upErr) {
+            const { data: pubData } = supabase.storage
+              .from("registrations")
+              .getPublicUrl(fileName);
+            return pubData.publicUrl;
+          } else {
+            console.warn("Storage upload fallback for " + docKey, upErr);
+          }
+        }
+      } catch (err) {
+        console.warn("Storage upload exception for " + docKey, err);
+      }
+      return base64OrData; // fallback
+    };
+
+    const [uploadedPhoto, uploadedAadhaar, uploadedCaste, uploadedQual] = await Promise.all([
+      uploadDocToStorage(d.passport_photo, "photo"),
+      uploadDocToStorage(d.aadhaar_card, "aadhaar"),
+      uploadDocToStorage(d.caste_income_cert, "caste"),
+      uploadDocToStorage(d.highest_qualification_cert, "qualification"),
+    ]);
+
     const { error, data } = await supabase.from("vtu_minority_registrations").insert({
       reference_no: newRefNo,
       full_name: d.full_name,
@@ -240,10 +287,10 @@ function RegisterPage() {
       family_income: d.family_income || null,
       heard_from: d.heard_from || null,
       remarks: d.remarks || null,
-      passport_photo_url: d.passport_photo || null,
-      aadhaar_card_url: d.aadhaar_card || null,
-      caste_income_cert_url: d.caste_income_cert || null,
-      highest_qualification_cert_url: d.highest_qualification_cert || null,
+      passport_photo_url: uploadedPhoto || null,
+      aadhaar_card_url: uploadedAadhaar || null,
+      caste_income_cert_url: uploadedCaste || null,
+      highest_qualification_cert_url: uploadedQual || null,
       declaration: true,
       status: "Pending",
     } as any);

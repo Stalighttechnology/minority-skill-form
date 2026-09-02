@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, type FormEvent } from "react";
+import ExcelJS from "exceljs";
 import { supabase } from "@/integrations/supabase/client";
 import { COURSES, KARNATAKA_DISTRICTS, MINORITY_RELIGIONS, QUALIFICATIONS } from "@/data/skill";
 import {
@@ -130,6 +131,7 @@ export function AdminDashboard() {
   const [editingApp, setEditingApp] = useState<Registration | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   // Read/Viewed tracking persisted in localStorage
   const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
@@ -454,99 +456,251 @@ export function AdminDashboard() {
     }
   };
 
-  // Export CSV (Complete with all fields, documents, and photo URLs)
-  const exportToCSV = () => {
+  // Export Excel (.xlsx) with embedded Passport Photos & document links using ExcelJS
+  const exportToExcel = async () => {
     if (filteredRegistrations.length === 0) {
       alert("No applications to export matching current filter.");
       return;
     }
-    const headers = [
-      "Application ID",
-      "Reference No",
-      "Full Name",
-      "Father Name",
-      "Mother Name",
-      "Gender",
-      "Date of Birth",
-      "Religion / Community",
-      "Specially Abled (PWD)",
-      "Aadhaar Number",
-      "Mobile Phone",
-      "Alternate Phone",
-      "Email Address",
-      "Full Address",
-      "District",
-      "Taluk",
-      "Pincode",
-      "Highest Qualification",
-      "Year of Passing",
-      "Course Applied",
-      "Training Location Preference",
-      "Employment Status",
-      "Family Annual Income",
-      "Heard From",
-      "Candidate Remarks",
-      "Application Status",
-      "Discrepancy / Rejection Reason",
-      "Passport Photo URL / Data",
-      "Aadhaar Card URL / Data",
-      "Caste & Income Cert URL / Data",
-      "Qualification Cert URL / Data",
-      "Registration Date & Time",
-    ];
 
-    const escapeCsv = (val: string | null | undefined): string => {
-      if (val === null || val === undefined) return '""';
-      const str = String(val).replace(/"/g, '""');
-      return `"${str}"`;
-    };
+    setIsExporting(true);
 
-    const rows = filteredRegistrations.map((r) => [
-      escapeCsv(r.id),
-      escapeCsv(r.reference_no),
-      escapeCsv(r.full_name),
-      escapeCsv(r.father_name),
-      escapeCsv(r.mother_name),
-      escapeCsv(r.gender),
-      escapeCsv(r.date_of_birth),
-      escapeCsv(r.religion),
-      escapeCsv(r.specially_abled || "No"),
-      escapeCsv(r.aadhaar_number),
-      escapeCsv(r.phone),
-      escapeCsv(r.alt_phone),
-      escapeCsv(r.email),
-      escapeCsv(r.address),
-      escapeCsv(r.district),
-      escapeCsv(r.taluk),
-      escapeCsv(r.pincode),
-      escapeCsv(r.qualification),
-      escapeCsv(r.year_of_passing),
-      escapeCsv(r.course),
-      escapeCsv(r.preferred_centre),
-      escapeCsv(r.employment_status),
-      escapeCsv(r.family_income),
-      escapeCsv(r.heard_from),
-      escapeCsv(r.remarks),
-      escapeCsv(r.status || "Pending"),
-      escapeCsv(r.status_reason || ""),
-      escapeCsv(r.passport_photo_url || ""),
-      escapeCsv(r.aadhaar_card_url || ""),
-      escapeCsv(r.caste_income_cert_url || ""),
-      escapeCsv(r.highest_qualification_cert_url || ""),
-      escapeCsv(r.created_at ? new Date(r.created_at).toLocaleString("en-IN") : ""),
-    ]);
+    try {
+      // Create a map to hold document data by applicant id
+      const docMap = new Map<
+        string,
+        {
+          passport_photo_url?: string;
+          aadhaar_card_url?: string;
+          caste_income_cert_url?: string;
+          highest_qualification_cert_url?: string;
+        }
+      >();
 
-    const csvContent = "\uFEFF" + [headers.map((h) => `"${h}"`).join(","), ...rows.map((row) => row.join(","))].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    const statusSuffix = statusFilter !== "All" ? `_${statusFilter.toLowerCase()}` : "";
-    link.setAttribute("download", `vtu_minority_registrations_all_fields${statusSuffix}_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const allIds = filteredRegistrations.map((r) => r.id);
+
+      // Fetch documents in small batches of 5 to avoid statement timeouts
+      const chunkSize = 5;
+      for (let i = 0; i < allIds.length; i += chunkSize) {
+        const chunk = allIds.slice(i, i + chunkSize);
+        try {
+          const { data, error } = await supabase
+            .from("vtu_minority_registrations")
+            .select("id, passport_photo_url, aadhaar_card_url, caste_income_cert_url, highest_qualification_cert_url")
+            .in("id", chunk);
+
+          if (!error && data) {
+            data.forEach((d: any) => {
+              docMap.set(d.id, {
+                passport_photo_url: d.passport_photo_url || "",
+                aadhaar_card_url: d.aadhaar_card_url || "",
+                caste_income_cert_url: d.caste_income_cert_url || "",
+                highest_qualification_cert_url: d.highest_qualification_cert_url || "",
+              });
+            });
+          }
+        } catch (chunkErr) {
+          console.warn("Chunk fetch notice:", chunkErr);
+        }
+      }
+
+      // Initialize ExcelJS Workbook
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "VTU Minority Skill Development Portal";
+      workbook.created = new Date();
+
+      const worksheet = workbook.addWorksheet("Candidates", {
+        views: [{ state: "frozen", ySplit: 1 }],
+      });
+
+      // Define columns
+      worksheet.columns = [
+        { header: "Sl No", key: "sl_no", width: 8 },
+        { header: "Application ID", key: "id", width: 20 },
+        { header: "Reference No", key: "reference_no", width: 18 },
+        { header: "Candidate Photo", key: "photo_img", width: 16 }, // Embedded Image Column
+        { header: "Full Name", key: "full_name", width: 25 },
+        { header: "Father Name", key: "father_name", width: 22 },
+        { header: "Mother Name", key: "mother_name", width: 22 },
+        { header: "Gender", key: "gender", width: 10 },
+        { header: "Date of Birth", key: "date_of_birth", width: 14 },
+        { header: "Minority Community", key: "religion", width: 20 },
+        { header: "Specially Abled (PWD)", key: "specially_abled", width: 14 },
+        { header: "Aadhaar Number", key: "aadhaar_number", width: 18 },
+        { header: "Mobile Phone", key: "phone", width: 16 },
+        { header: "Alternate Phone", key: "alt_phone", width: 16 },
+        { header: "Email Address", key: "email", width: 28 },
+        { header: "Full Address", key: "address", width: 35 },
+        { header: "District", key: "district", width: 16 },
+        { header: "Taluk", key: "taluk", width: 16 },
+        { header: "Pincode", key: "pincode", width: 10 },
+        { header: "Highest Qualification", key: "qualification", width: 22 },
+        { header: "Year of Passing", key: "year_of_passing", width: 15 },
+        { header: "Course Applied", key: "course", width: 30 },
+        { header: "Training Location Preference", key: "preferred_centre", width: 24 },
+        { header: "Employment Status", key: "employment_status", width: 18 },
+        { header: "Family Annual Income", key: "family_income", width: 18 },
+        { header: "Heard From", key: "heard_from", width: 18 },
+        { header: "Candidate Remarks", key: "remarks", width: 25 },
+        { header: "Application Status", key: "status", width: 16 },
+        { header: "Discrepancy / Rejection Reason", key: "status_reason", width: 30 },
+        { header: "Aadhaar Document", key: "aadhaar_doc", width: 24 },
+        { header: "Caste Certificate", key: "caste_doc", width: 24 },
+        { header: "Qualification Certificate", key: "qual_doc", width: 24 },
+        { header: "Registration Date & Time", key: "created_at", width: 22 },
+      ];
+
+      // Format Header Row
+      const headerRow = worksheet.getRow(1);
+      headerRow.height = 28;
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF0F2B48" }, // Navy blue branding
+        };
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      });
+
+      // Add Data Rows & Embed Images
+      filteredRegistrations.forEach((r, idx) => {
+        const rowIndex = idx + 2; // 1-indexed, header is 1
+        const docs = docMap.get(r.id) || {};
+        const photo = docs.passport_photo_url || r.passport_photo_url || "";
+        const aadhaar = docs.aadhaar_card_url || r.aadhaar_card_url || "";
+        const caste = docs.caste_income_cert_url || r.caste_income_cert_url || "";
+        const qual = docs.highest_qualification_cert_url || r.highest_qualification_cert_url || "";
+
+        const row = worksheet.addRow({
+          sl_no: idx + 1,
+          id: r.id,
+          reference_no: r.reference_no || "",
+          photo_img: "", // Placeholder for embedded image
+          full_name: r.full_name || "",
+          father_name: r.father_name || "—",
+          mother_name: r.mother_name || "—",
+          gender: r.gender || "",
+          date_of_birth: r.date_of_birth || "",
+          religion: r.religion || "",
+          specially_abled: r.specially_abled || "No",
+          aadhaar_number: r.aadhaar_number || "—",
+          phone: r.phone || "",
+          alt_phone: r.alt_phone || "—",
+          email: r.email || "",
+          address: r.address || "",
+          district: r.district || "",
+          taluk: r.taluk || "—",
+          pincode: r.pincode || "",
+          qualification: r.qualification || "",
+          year_of_passing: r.year_of_passing || "—",
+          course: r.course || "",
+          preferred_centre: r.preferred_centre || "",
+          employment_status: r.employment_status || "—",
+          family_income: r.family_income || "—",
+          heard_from: r.heard_from || "—",
+          remarks: r.remarks || "—",
+          status: r.status || "Pending",
+          status_reason: r.status_reason || "—",
+          aadhaar_doc: aadhaar ? (aadhaar.startsWith("http") ? "View / Download" : "Document Attached") : "Not Uploaded",
+          caste_doc: caste ? (caste.startsWith("http") ? "View / Download" : "Certificate Attached") : "Not Uploaded",
+          qual_doc: qual ? (qual.startsWith("http") ? "View / Download" : "Certificate Attached") : "Not Uploaded",
+          created_at: r.created_at ? new Date(r.created_at).toLocaleString("en-IN") : "",
+        });
+
+        // Set row height to display photo comfortably
+        row.height = 65;
+        row.alignment = { vertical: "middle", horizontal: "left" };
+
+        // Center align specific columns
+        [1, 2, 3, 4, 8, 9, 11, 19, 21, 28, 30, 31, 32].forEach((colIdx) => {
+          row.getCell(colIdx).alignment = { vertical: "middle", horizontal: "center" };
+        });
+
+        // Set cells for Aadhaar, Caste, and Qualification
+        const setDocCell = (cellKey: string, docData: string, label: string) => {
+          if (!docData) {
+            row.getCell(cellKey).value = "Not Uploaded";
+            return;
+          }
+          if (docData.startsWith("http")) {
+            row.getCell(cellKey).value = { text: `🔗 View ${label}`, hyperlink: docData };
+            row.getCell(cellKey).font = { color: { argb: "FF0066CC" }, underline: true };
+          } else if (docData.startsWith("data:")) {
+            // For data URIs, give a clean clickable hyperlink label where supported, or descriptive indicator
+            const isPdf = docData.startsWith("data:application/pdf");
+            const typeLabel = isPdf ? "PDF Document" : "Image File";
+            row.getCell(cellKey).value = `📄 ${label} Attached (${typeLabel})`;
+            row.getCell(cellKey).font = { color: { argb: "FF056608" }, bold: true };
+          } else {
+            row.getCell(cellKey).value = "Attached";
+          }
+        };
+
+        setDocCell("aadhaar_doc", aadhaar, "Aadhaar Card");
+        setDocCell("caste_doc", caste, "Caste Certificate");
+        setDocCell("qual_doc", qual, "Qualification Cert");
+
+        // Embed Photo inside the "Candidate Photo" cell (whether HTTPS URL or Base64)
+        if (photo) {
+          try {
+            if (photo.startsWith("data:image")) {
+              const matches = photo.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+              if (matches && matches[2]) {
+                let ext = matches[1].toLowerCase();
+                if (ext === "jpg") ext = "jpeg";
+                if (["jpeg", "png", "gif"].includes(ext)) {
+                  const imageId = workbook.addImage({
+                    base64: matches[2],
+                    extension: ext as "jpeg" | "png" | "gif",
+                  });
+                  worksheet.addImage(imageId, {
+                    tl: { col: 3.15, row: rowIndex - 1 + 0.1 },
+                    ext: { width: 55, height: 65 },
+                    editAs: "oneCell",
+                  });
+                }
+              }
+            } else if (photo.startsWith("http")) {
+              row.getCell("photo_img").value = { text: "🔗 View Photo", hyperlink: photo };
+              row.getCell("photo_img").font = { color: { argb: "FF0066CC" }, underline: true };
+            } else {
+              row.getCell("photo_img").value = "Photo Attached";
+            }
+          } catch (imgErr) {
+            console.warn("Could not embed image for row", rowIndex, imgErr);
+            if (photo.startsWith("http")) {
+              row.getCell("photo_img").value = { text: "🔗 View Photo", hyperlink: photo };
+              row.getCell("photo_img").font = { color: { argb: "FF0066CC" }, underline: true };
+            } else {
+              row.getCell("photo_img").value = "Photo Attached";
+            }
+          }
+        } else {
+          row.getCell("photo_img").value = "No Photo";
+        }
+      });
+
+      const statusSuffix = statusFilter !== "All" ? `_${statusFilter.toLowerCase()}` : "";
+      const fileName = `VTU_Minority_Registrations_All_Data${statusSuffix}_${new Date().toISOString().split("T")[0]}.xlsx`;
+
+      // Generate Buffer and trigger download of .xlsx
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Excel Export error:", err);
+      alert("Failed to export complete Excel data. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Filtered & Sorted Registrations
@@ -823,14 +977,15 @@ export function AdminDashboard() {
                 Refresh
               </button>
 
-              {/* Export CSV (Based on Filter) */}
+              {/* Export Excel (Based on Filter) */}
               <button
-                onClick={exportToCSV}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold text-white transition-colors shadow-xs"
-                title={`Export ${filteredRegistrations.length} filtered applications to CSV`}
+                onClick={exportToExcel}
+                disabled={isExporting}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-xs font-semibold text-white transition-colors shadow-xs"
+                title={`Export ${filteredRegistrations.length} filtered applications to Excel (.xlsx) with all fields, documents & photos`}
               >
-                <Download className="h-3.5 w-3.5" />
-                Export CSV {statusFilter !== "All" ? `(${statusFilter})` : `(${filteredRegistrations.length})`}
+                <Download className={`h-3.5 w-3.5 ${isExporting ? "animate-bounce" : ""}`} />
+                {isExporting ? "Preparing Full Excel..." : `Export Excel (.xlsx) ${statusFilter !== "All" ? `(${statusFilter})` : `(${filteredRegistrations.length})`}`}
               </button>
             </div>
           </div>
