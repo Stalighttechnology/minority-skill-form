@@ -94,9 +94,12 @@ export const PENDING_REASON_OPTIONS = [
 export const REJECT_REASON_OPTIONS = [
   "Not eligible / Age criteria mismatch",
   "Caste / Minority criteria mismatch",
+  "Caste validity expired",
   "Qualification criteria not met",
   "Duplicate registration found",
   "Fake / Invalid documents detected",
+  "Wrong document uploaded",
+  "Document not clear / blurred",
   "Non-Karnataka domicile / Out of state",
   "Candidate requested cancellation",
   "Other / Custom Note",
@@ -937,7 +940,10 @@ export function AdminDashboard() {
                             {app.status || "Pending"}
                           </span>
                           {app.status_reason && (
-                            <span className="text-[10px] text-red-700 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded max-w-[140px] truncate" title={app.status_reason}>
+                            <span 
+                              className="text-[10px] text-red-700 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded max-w-[200px] text-center leading-tight whitespace-normal break-words" 
+                              title={app.status_reason}
+                            >
                               ⚠️ {app.status_reason}
                             </span>
                           )}
@@ -1073,17 +1079,28 @@ export function AdminDashboard() {
                   >
                     {viewingApp.status || "Pending"}
                   </span>
+                  {viewingApp.status_reason && (
+                    <div className="mt-2 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg p-2 max-w-md">
+                      ⚠️ <strong>Reason:</strong> {viewingApp.status_reason}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleStatusUpdate(viewingApp.id, "Approved")}
+                    onClick={() => openStatusChange(viewingApp, "Approved")}
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors shadow-xs"
                   >
                     Approve Application
                   </button>
                   <button
-                    onClick={() => handleStatusUpdate(viewingApp.id, "Rejected")}
+                    onClick={() => openStatusChange(viewingApp, "Pending")}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700 transition-colors shadow-xs"
+                  >
+                    Mark Pending
+                  </button>
+                  <button
+                    onClick={() => openStatusChange(viewingApp, "Rejected")}
                     className="px-3 py-1.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors shadow-xs"
                   >
                     Reject
