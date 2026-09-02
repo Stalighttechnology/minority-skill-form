@@ -155,6 +155,30 @@ export function AdminDashboard() {
     });
   };
 
+  // Open Viewing Modal with on-demand document loading
+  const openViewApp = async (app: Registration) => {
+    markAsViewed(app.id);
+    setViewingApp(app);
+
+    // If documents are not already loaded in memory, fetch on-demand for this single row
+    if (!app.passport_photo_url && !app.aadhaar_card_url) {
+      try {
+        const { data, error } = await supabase
+          .from("vtu_minority_registrations")
+          .select("passport_photo_url, aadhaar_card_url, caste_income_cert_url, highest_qualification_cert_url")
+          .eq("id", app.id)
+          .maybeSingle();
+
+        if (!error && data) {
+          setViewingApp((prev) => (prev && prev.id === app.id ? { ...prev, ...data } : prev));
+          setRegistrations((prev) => prev.map((r) => (r.id === app.id ? { ...r, ...data } : r)));
+        }
+      } catch (err) {
+        console.warn("Failed to load full document previews:", err);
+      }
+    }
+  };
+
   // Status Change Dialog with Reason
   const [statusChangeModal, setStatusChangeModal] = useState<{
     app: Registration;
@@ -208,19 +232,39 @@ export function AdminDashboard() {
 
   const [fetchError, setFetchError] = useState("");
 
-  // Fetch registrations from Supabase
+  // Fetch registrations from Supabase with resilient lightweight query + detail loading
   const fetchRegistrations = async () => {
     setLoading(true);
     setFetchError("");
     try {
+      // First attempt: fetch all columns
       const { data, error } = await supabase
         .from("vtu_minority_registrations")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching registrations:", error);
-        setFetchError(error.message || "Failed to fetch registrations from Supabase. Check RLS policies.");
+        console.warn("Full fetch failed, attempting lightweight fetch:", error);
+        
+        // Fallback: If statement timeout occurs due to large base64 document payloads,
+        // fetch metadata first so the dashboard table loads instantly
+        const { data: lightData, error: lightError } = await supabase
+          .from("vtu_minority_registrations")
+          .select("id, reference_no, full_name, father_name, mother_name, gender, date_of_birth, religion, specially_abled, aadhaar_number, email, phone, alt_phone, address, district, taluk, pincode, qualification, year_of_passing, course, preferred_centre, employment_status, family_income, heard_from, remarks, status, status_reason, created_at")
+          .order("created_at", { ascending: false });
+
+        if (lightError) {
+          console.error("Lightweight fetch error:", lightError);
+          setFetchError(lightError.message || "Failed to fetch registrations. Check Supabase RLS policies & SQL query timeout.");
+        } else if (lightData) {
+          const normalized = lightData.map((item: any, idx: number) => ({
+            ...item,
+            status: item.status || "Pending",
+            status_reason: item.status_reason || null,
+            reference_no: item.reference_no || `VTU${new Date(item.created_at || Date.now()).getFullYear()}MSD${String(lightData.length - idx).padStart(3, "0")}`,
+          }));
+          setRegistrations(normalized as Registration[]);
+        }
       } else if (data) {
         const normalized = data.map((item: any, idx: number) => ({
           ...item,
@@ -987,10 +1031,7 @@ export function AdminDashboard() {
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => {
-                              markAsViewed(app.id);
-                              setViewingApp(app);
-                            }}
+                            onClick={() => openViewApp(app)}
                             className="p-1.5 text-slate-600 hover:text-navy hover:bg-slate-100 rounded-md transition-colors"
                             title="View Full Application"
                           >
