@@ -120,6 +120,9 @@ function Field({
   );
 }
 
+// Flag to easily open or close registrations
+const REGISTRATIONS_OPEN = false;
+
 function RegisterPage() {
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -143,6 +146,10 @@ function RegisterPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!REGISTRATIONS_OPEN) {
+      setServerError("Registrations are currently closed. Submissions are disabled.");
+      return;
+    }
     setServerError("");
     const parsed = schema.safeParse(form);
     if (!parsed.success) {
@@ -396,6 +403,29 @@ function RegisterPage() {
               >
                 Submit another application
               </button>
+            </div>
+          </div>
+        ) : !REGISTRATIONS_OPEN ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-6 sm:p-12 text-center shadow-panel animate-in fade-in zoom-in-95 max-w-2xl mx-auto">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 text-amber-600 mb-4 shadow-xs text-3xl">
+              ⚠️
+            </div>
+            
+            <h2 className="text-xl sm:text-2xl font-bold text-amber-900">
+              Registrations Are Currently Closed
+            </h2>
+
+            <p className="mt-3 text-sm sm:text-base text-amber-800 leading-relaxed max-w-lg mx-auto">
+              The application portal for the <strong>VTU Minority Skill Development Programme</strong> is currently closed for new submissions.
+            </p>
+
+            <div className="mt-6 p-4 rounded-xl bg-white border border-amber-200 text-slate-700 text-xs sm:text-sm text-left max-w-md mx-auto space-y-2">
+              <p className="font-semibold text-slate-900">Important Information:</p>
+              <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                <li>Candidates who have already applied can contact their designated VTU Skill Development Centre for updates.</li>
+                <li>New batch announcements and opening dates will be published on the official VTU portal.</li>
+                <li>For urgent queries, please reach out to the VTU Skill Development Centre coordinator.</li>
+              </ul>
             </div>
           </div>
         ) : (
