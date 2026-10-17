@@ -183,8 +183,8 @@ export function AdminDashboard() {
           .maybeSingle();
 
         if (!error && data) {
-          setViewingApp((prev) => (prev && prev.id === app.id ? { ...prev, ...data } : prev));
-          setRegistrations((prev) => prev.map((r) => (r.id === app.id ? { ...r, ...data } : r)));
+          setViewingApp((prev) => (prev && prev.id === app.id ? { ...prev, ...(data as object) } : prev));
+          setRegistrations((prev) => prev.map((r) => (r.id === app.id ? { ...r, ...(data as object) } : r)));
         }
       } catch (err) {
         console.warn("Failed to load full document previews:", err);
@@ -657,7 +657,7 @@ export function AdminDashboard() {
           try {
             if (photo.startsWith("data:image")) {
               const matches = photo.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
-              if (matches && matches[2]) {
+              if (matches && matches[1] && matches[2]) {
                 let ext = matches[1].toLowerCase();
                 if (ext === "jpg") ext = "jpeg";
                 if (["jpeg", "png", "gif"].includes(ext)) {

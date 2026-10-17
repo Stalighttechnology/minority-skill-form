@@ -121,7 +121,7 @@ function Field({
 }
 
 // Flag to easily open or close registrations
-const REGISTRATIONS_OPEN = false;
+const REGISTRATIONS_OPEN = true;
 
 function RegisterPage() {
   const [form, setForm] = useState(EMPTY);
@@ -228,9 +228,9 @@ function RegisterPage() {
       if (base64OrData.startsWith("http")) return base64OrData;
       try {
         const matches = base64OrData.match(/^data:([^;]+);base64,(.+)$/);
-        if (matches) {
-          const mime = matches[1];
-          const b64 = matches[2];
+        if (matches && matches[1] && matches[2]) {
+          const mime: string = matches[1];
+          const b64: string = matches[2];
           const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "jpg";
           const fileName = `${newRefNo || Date.now()}_${docKey}_${Date.now()}.${ext}`;
           
