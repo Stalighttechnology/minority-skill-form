@@ -362,6 +362,34 @@ function RegisterPage() {
               </div>
             </div>
           </div>
+
+          {/* Last Date / Application Deadline Banner */}
+          <div className="mt-4 sm:mt-5 flex justify-center">
+            <div className="inline-flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-4 py-2 sm:px-6 sm:py-2.5 rounded-2xl sm:rounded-full bg-amber-400/15 border border-amber-300/40 shadow-md backdrop-blur-xs text-center">
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400"></span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider bg-amber-400 text-slate-900 shadow-xs">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Important Notice
+                </span>
+              </div>
+
+              <div className="text-xs sm:text-sm text-white font-medium leading-snug">
+                Applications Close Soon:{" "}
+                <strong className="text-amber-300 font-bold tracking-wide underline decoration-amber-400 decoration-2 underline-offset-4">
+                  10th November 2026
+                </strong>
+                <span className="text-amber-200/90 text-[11px] sm:text-xs ml-2 font-normal">
+                  (ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಕೊನೆಯ ದಿನಾಂಕ: 10 ನವೆಂಬರ್ 2026)
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -434,6 +462,26 @@ function RegisterPage() {
             noValidate
             className="space-y-8 sm:space-y-10 rounded-xl border border-border bg-card p-4 sm:p-8 md:p-10 shadow-panel"
           >
+            {/* Last Date Reminder Alert */}
+            <div className="flex items-start sm:items-center gap-3 p-3.5 sm:p-4 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-950 shadow-xs">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 font-bold">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1 text-xs sm:text-sm">
+                <p className="font-semibold text-amber-900 flex flex-wrap items-center gap-1.5">
+                  <span>Applications Close Soon:</span>
+                  <span className="text-amber-800 font-bold underline decoration-amber-500 underline-offset-2">
+                    Last Date to Apply is 10th November 2026
+                  </span>
+                </p>
+                <p className="text-amber-800/90 text-xs mt-0.5">
+                  ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಕೊನೆಯ ದಿನಾಂಕ: 10 ನವೆಂಬರ್ 2026.
+                </p>
+              </div>
+            </div>
+
             <fieldset className="space-y-5">
               <legend className="section-title mb-3">1. Personal details</legend>
               <div className="grid gap-5 sm:grid-cols-2">
