@@ -1,4 +1,15 @@
+// All master courses (retained for admin filtering, existing records, and reporting)
 export const COURSES = [
+  { id: 1, name: "AWS Cloud Foundation & Solution Architect", criteria: "Pursuing Diploma/Degree" },
+  { id: 2, name: "Application Developer Web & Mobile", criteria: "12th, Pursuing Diploma/Degree" },
+  { id: 3, name: "Fashion Designer", criteria: "SSLC" },
+  { id: 4, name: "Retail Sales Executive", criteria: "SSLC" },
+  { id: 5, name: "Data Entry Operator", criteria: "2nd PUC" },
+  { id: 6, name: "IT Customer Care Executive", criteria: "SSLC" },
+] as const;
+
+// Courses open in the public registration form (Fashion Designer removed for new applicants)
+export const REGISTRATION_COURSES = [
   { id: 1, name: "AWS Cloud Foundation & Solution Architect", criteria: "Pursuing Diploma/Degree" },
   { id: 2, name: "Application Developer Web & Mobile", criteria: "12th, Pursuing Diploma/Degree" },
   { id: 3, name: "Retail Sales Executive", criteria: "SSLC" },

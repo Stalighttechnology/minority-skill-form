@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import campusBg from "@/assets/about-bg1-1.jpg";
-import { COURSES, MINORITY_RELIGIONS, CENTRES, QUALIFICATIONS, KARNATAKA_DISTRICTS, DISTRICT_TALUKS } from "@/data/skill";
+import { COURSES, REGISTRATION_COURSES, MINORITY_RELIGIONS, CENTRES, QUALIFICATIONS, KARNATAKA_DISTRICTS, DISTRICT_TALUKS } from "@/data/skill";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -685,7 +685,7 @@ function RegisterPage() {
                     onChange={(e) => set("course", e.target.value)}
                   >
                     <option value="">Choose a course</option>
-                    {COURSES.map((c) => (
+                    {REGISTRATION_COURSES.map((c) => (
                       <option key={c.id} value={c.name}>
                         {c.id}. {c.name} ({c.criteria})
                       </option>
