@@ -705,11 +705,22 @@ export function AdminDashboard() {
           r.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (r.aadhaar_number && r.aadhaar_number.includes(searchTerm));
 
-        const matchesStatus =
-          statusFilter === "All" ||
-          (statusFilter === "Pending" && (!r.status || r.status === "Pending") && !r.status_reason) ||
-          (statusFilter === "Pending_Documents" && (!r.status || r.status === "Pending") && Boolean(r.status_reason)) ||
-          r.status === statusFilter;
+        let matchesStatus = false;
+        if (statusFilter === "All") {
+          matchesStatus = true;
+        } else if (statusFilter === "Pending") {
+          // Strictly unreviewed fresh pending: no document discrepancy / reason
+          matchesStatus = (!r.status || r.status === "Pending") && !r.status_reason;
+        } else if (statusFilter === "Pending_Documents") {
+          // Reviewed applications flagged for document discrepancy
+          matchesStatus = (!r.status || r.status === "Pending") && Boolean(r.status_reason);
+        } else if (statusFilter === "Approved") {
+          matchesStatus = r.status === "Approved";
+        } else if (statusFilter === "Rejected") {
+          matchesStatus = r.status === "Rejected";
+        } else {
+          matchesStatus = r.status === statusFilter;
+        }
 
         const matchesCourse = courseFilter === "All" || r.course === courseFilter;
         const matchesLocation = locationFilter === "All" || r.preferred_centre === locationFilter;
@@ -1189,13 +1200,15 @@ export function AdminDashboard() {
                             onClick={() => openStatusChange(app, "Pending")}
                             disabled={updatingStatusId === app.id}
                             className={`px-2 py-1 rounded text-[11px] font-semibold border transition-colors ${
-                              app.status === "Pending"
+                              app.status === "Pending" && !app.status_reason
                                 ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                : app.status === "Pending" && app.status_reason
+                                ? "bg-orange-600 text-white border-orange-600 shadow-xs"
                                 : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
                             }`}
                             title="Mark as Pending with discrepancy reason"
                           >
-                            Pending
+                            {app.status === "Pending" && app.status_reason ? "Pending Docs" : "Pending"}
                           </button>
 
                           <button
