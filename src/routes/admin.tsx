@@ -945,24 +945,8 @@ export function AdminDashboard() {
               />
             </div>
 
-            {/* Quick Actions & Status Filter in Middle */}
+            {/* Quick Actions (Refresh & Export) */}
             <div className="flex flex-wrap items-center gap-2">
-              {/* Prominent Status Filter Dropdown */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
-                <span className="text-xs font-semibold text-slate-600 shrink-0">Status:</span>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="text-xs rounded border border-slate-300 py-1 px-2 bg-white text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-navy"
-                >
-                  <option value="All">All Statuses ({registrations.length})</option>
-                  <option value="Pending">⏳ Pending Review ({stats.pendingReview})</option>
-                  <option value="Pending_Documents">⚠️ Pending Documents ({stats.pendingDocs})</option>
-                  <option value="Approved">✅ Approved ({stats.approved})</option>
-                  <option value="Rejected">❌ Rejected ({stats.rejected})</option>
-                </select>
-              </div>
-
               {/* Refresh Button */}
               <button
                 onClick={fetchRegistrations}
@@ -982,7 +966,7 @@ export function AdminDashboard() {
                 title={`Export ${filteredRegistrations.length} filtered applications to Excel (.xlsx) with all fields, documents & photos`}
               >
                 <Download className={`h-3.5 w-3.5 ${isExporting ? "animate-bounce" : ""}`} />
-                {isExporting ? "Preparing Full Excel..." : `Export Excel (.xlsx) ${statusFilter !== "All" ? `(${statusFilter})` : `(${filteredRegistrations.length})`}`}
+                {isExporting ? "Preparing Full Excel..." : `Export Excel (.xlsx) ${statusFilter !== "All" ? `(${statusFilter === "Pending_Documents" ? "Pending Docs" : statusFilter})` : `(${filteredRegistrations.length})`}`}
               </button>
             </div>
           </div>
