@@ -81,6 +81,7 @@ interface Registration {
 }
 
 export const PENDING_REASON_OPTIONS = [
+  "Clear / Reset to Fresh Pending (No Issues)",
   "Wrong document uploaded",
   "Document not clear / blurred",
   "Document expired / Validity overdue",
@@ -144,33 +145,8 @@ export function AdminDashboard() {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
-  // Read/Viewed tracking persisted in localStorage
-  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem("vtu_admin_viewed_ids");
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-
-  const [verificationFilter, setVerificationFilter] = useState<"All" | "Unread" | "Viewed">("All");
-
-  const markAsViewed = (id: string) => {
-    setViewedIds((prev) => {
-      const next = new Set(prev).add(id);
-      try {
-        localStorage.setItem("vtu_admin_viewed_ids", JSON.stringify(Array.from(next)));
-      } catch (e) {
-        console.error(e);
-      }
-      return next;
-    });
-  };
-
   // Open Viewing Modal with on-demand document loading
   const openViewApp = async (app: Registration) => {
-    markAsViewed(app.id);
     setViewingApp(app);
 
     // If documents are not already loaded in memory, fetch on-demand for this single row
@@ -318,7 +294,6 @@ export function AdminDashboard() {
 
   // Open Status Change Dialog
   const openStatusChange = (app: Registration, targetStatus: "Approved" | "Pending" | "Rejected") => {
-    markAsViewed(app.id);
     if (targetStatus === "Approved") {
       // Direct approve
       handleStatusUpdate(app.id, "Approved", null);
@@ -366,6 +341,10 @@ export function AdminDashboard() {
 
   const confirmStatusChangeWithReason = () => {
     if (!statusChangeModal) return;
+    if (statusChangeModal.targetStatus === "Pending" && selectedReason.startsWith("Clear / Reset")) {
+      handleStatusUpdate(statusChangeModal.app.id, "Pending", null);
+      return;
+    }
     const isOther = selectedReason.startsWith("Other");
     const finalReason = isOther && customReasonText.trim()
       ? `Other: ${customReasonText.trim()}`
@@ -728,20 +707,15 @@ export function AdminDashboard() {
 
         const matchesStatus =
           statusFilter === "All" ||
-          (statusFilter === "Pending" && (!r.status || r.status === "Pending")) ||
+          (statusFilter === "Pending" && (!r.status || r.status === "Pending") && !r.status_reason) ||
+          (statusFilter === "Pending_Documents" && (!r.status || r.status === "Pending") && Boolean(r.status_reason)) ||
           r.status === statusFilter;
-
-        const isViewed = viewedIds.has(r.id);
-        const matchesVerification =
-          verificationFilter === "All" ||
-          (verificationFilter === "Viewed" && isViewed) ||
-          (verificationFilter === "Unread" && !isViewed);
 
         const matchesCourse = courseFilter === "All" || r.course === courseFilter;
         const matchesLocation = locationFilter === "All" || r.preferred_centre === locationFilter;
         const matchesCaste = casteFilter === "All" || r.religion === casteFilter;
 
-        return matchesSearch && matchesStatus && matchesVerification && matchesCourse && matchesLocation && matchesCaste;
+        return matchesSearch && matchesStatus && matchesCourse && matchesLocation && matchesCaste;
       })
       .sort((a, b) => {
         let valA: any = a[sortBy] || "";
@@ -756,18 +730,18 @@ export function AdminDashboard() {
         if (valA > valB) return sortOrder === "asc" ? 1 : -1;
         return 0;
       });
-  }, [registrations, searchTerm, statusFilter, verificationFilter, viewedIds, courseFilter, locationFilter, casteFilter, sortBy, sortOrder]);
+  }, [registrations, searchTerm, statusFilter, courseFilter, locationFilter, casteFilter, sortBy, sortOrder]);
 
   // Statistics Summary
   const stats = useMemo(() => {
     const total = registrations.length;
     const approved = registrations.filter((r) => r.status === "Approved").length;
     const rejected = registrations.filter((r) => r.status === "Rejected").length;
-    const pending = total - approved - rejected;
-    const viewedCount = registrations.filter((r) => viewedIds.has(r.id)).length;
-    const unreadCount = total - viewedCount;
-    return { total, approved, rejected, pending, viewedCount, unreadCount };
-  }, [registrations, viewedIds]);
+    const pendingReview = registrations.filter((r) => (!r.status || r.status === "Pending") && !r.status_reason).length;
+    const pendingDocs = registrations.filter((r) => (!r.status || r.status === "Pending") && Boolean(r.status_reason)).length;
+    const pending = pendingReview + pendingDocs;
+    return { total, approved, rejected, pendingReview, pendingDocs, pending };
+  }, [registrations]);
 
   // Pagination Slice
   const totalItems = filteredRegistrations.length;
@@ -893,7 +867,7 @@ export function AdminDashboard() {
         )}
 
         {/* Statistics Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
               <Users className="h-5 w-5" />
@@ -904,13 +878,23 @@ export function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="bg-white rounded-xl p-3.5 border border-amber-200 shadow-xs flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[11px] font-medium text-slate-500">Pending</p>
-              <p className="text-xl font-bold text-amber-600">{stats.pending}</p>
+              <p className="text-[11px] font-medium text-slate-500">Pending Review</p>
+              <p className="text-xl font-bold text-amber-600">{stats.pendingReview}</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-3.5 border border-orange-200 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-slate-500">Pending Docs</p>
+              <p className="text-xl font-bold text-orange-600">{stats.pendingDocs}</p>
             </div>
           </div>
 
@@ -931,26 +915,6 @@ export function AdminDashboard() {
             <div>
               <p className="text-[11px] font-medium text-slate-500">Rejected</p>
               <p className="text-xl font-bold text-red-600">{stats.rejected}</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-3.5 border border-indigo-100 shadow-xs flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 font-bold text-xs">
-              👁️
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-indigo-700">Viewed</p>
-              <p className="text-xl font-bold text-indigo-700">{stats.viewedCount}</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-3.5 border border-violet-100 shadow-xs flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 font-bold text-xs">
-              📩
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-violet-700">Unread</p>
-              <p className="text-xl font-bold text-violet-700">{stats.unreadCount}</p>
             </div>
           </div>
         </div>
@@ -981,7 +945,8 @@ export function AdminDashboard() {
                   className="text-xs rounded border border-slate-300 py-1 px-2 bg-white text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-navy"
                 >
                   <option value="All">All Statuses ({registrations.length})</option>
-                  <option value="Pending">⏳ Pending ({stats.pending})</option>
+                  <option value="Pending">⏳ Pending Review ({stats.pendingReview})</option>
+                  <option value="Pending_Documents">⚠️ Pending Documents ({stats.pendingDocs})</option>
                   <option value="Approved">✅ Approved ({stats.approved})</option>
                   <option value="Rejected">❌ Rejected ({stats.rejected})</option>
                 </select>
@@ -1012,7 +977,7 @@ export function AdminDashboard() {
           </div>
 
           {/* Filter Dropdowns */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
             {/* Status Filter */}
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-slate-500 shrink-0">Status:</span>
@@ -1021,24 +986,11 @@ export function AdminDashboard() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
               >
-                <option value="All">All Statuses</option>
-                <option value="Pending">⏳ Pending Review</option>
-                <option value="Approved">✅ Approved</option>
-                <option value="Rejected">❌ Rejected</option>
-              </select>
-            </div>
-
-            {/* Verification / Review State Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500 shrink-0">Review:</span>
-              <select
-                value={verificationFilter}
-                onChange={(e) => setVerificationFilter(e.target.value as any)}
-                className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
-              >
-                <option value="All">All Applications</option>
-                <option value="Unread">📩 Unread / New ({stats.unreadCount})</option>
-                <option value="Viewed">👁️ Viewed / Opened ({stats.viewedCount})</option>
+                <option value="All">All Statuses ({registrations.length})</option>
+                <option value="Pending">⏳ Pending Review ({stats.pendingReview})</option>
+                <option value="Pending_Documents">⚠️ Pending Documents ({stats.pendingDocs})</option>
+                <option value="Approved">✅ Approved ({stats.approved})</option>
+                <option value="Rejected">❌ Rejected ({stats.rejected})</option>
               </select>
             </div>
 
@@ -1137,18 +1089,7 @@ export function AdminDashboard() {
 
                       {/* Candidate Name & Contact */}
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">{app.full_name}</span>
-                          {!viewedIds.has(app.id) ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700 border border-violet-200">
-                              NEW
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400" title="Application Viewed">
-                              👁️
-                            </span>
-                          )}
-                        </div>
+                        <div className="font-semibold text-slate-900">{app.full_name}</div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
                           <span>📱 {app.phone}</span>
                           <span>•</span>
@@ -1187,10 +1128,18 @@ export function AdminDashboard() {
                                 ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                                 : app.status === "Rejected"
                                 ? "bg-red-100 text-red-800 border border-red-200"
+                                : app.status_reason
+                                ? "bg-orange-100 text-orange-800 border border-orange-200"
                                 : "bg-amber-100 text-amber-800 border border-amber-200"
                             }`}
                           >
-                            {app.status || "Pending"}
+                            {app.status === "Approved"
+                              ? "Approved"
+                              : app.status === "Rejected"
+                              ? "Rejected"
+                              : app.status_reason
+                              ? "Pending Documents"
+                              : "Pending"}
                           </span>
                           {app.status_reason && (
                             <span 
@@ -1418,10 +1367,18 @@ export function AdminDashboard() {
                         ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                         : viewingApp.status === "Rejected"
                         ? "bg-red-100 text-red-800 border border-red-200"
+                        : viewingApp.status_reason
+                        ? "bg-orange-100 text-orange-800 border border-orange-200"
                         : "bg-amber-100 text-amber-800 border border-amber-200"
                     }`}
                   >
-                    {viewingApp.status || "Pending"}
+                    {viewingApp.status === "Approved"
+                      ? "Approved"
+                      : viewingApp.status === "Rejected"
+                      ? "Rejected"
+                      : viewingApp.status_reason
+                      ? "Pending Documents"
+                      : "Pending"}
                   </span>
                   {viewingApp.status_reason && (
                     <div className="mt-2 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg p-2 max-w-md">
