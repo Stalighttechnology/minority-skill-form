@@ -124,7 +124,8 @@ export function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [courseFilter, setCourseFilter] = useState<string>("All");
-  const [locationFilter, setLocationFilter] = useState<string>("All");
+  const [preferredLocationFilter, setPreferredLocationFilter] = useState<string>("All");
+  const [districtFilter, setDistrictFilter] = useState<string>("All");
   const [casteFilter, setCasteFilter] = useState<string>("All");
   const [sortBy, setSortBy] = useState<"created_at" | "full_name" | "reference_no">("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -136,7 +137,7 @@ export function AdminDashboard() {
   // Reset to page 1 whenever filters or search query change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, courseFilter, locationFilter, casteFilter, sortBy, sortOrder]);
+  }, [searchTerm, statusFilter, courseFilter, preferredLocationFilter, districtFilter, casteFilter, sortBy, sortOrder]);
 
   // Modal / Drawer States
   const [viewingApp, setViewingApp] = useState<Registration | null>(null);
@@ -723,10 +724,11 @@ export function AdminDashboard() {
         }
 
         const matchesCourse = courseFilter === "All" || r.course === courseFilter;
-        const matchesLocation = locationFilter === "All" || r.preferred_centre === locationFilter;
+        const matchesTrainingLocation = preferredLocationFilter === "All" || r.preferred_centre === preferredLocationFilter;
+        const matchesDistrict = districtFilter === "All" || r.district === districtFilter;
         const matchesCaste = casteFilter === "All" || r.religion === casteFilter;
 
-        return matchesSearch && matchesStatus && matchesCourse && matchesLocation && matchesCaste;
+        return matchesSearch && matchesStatus && matchesCourse && matchesTrainingLocation && matchesDistrict && matchesCaste;
       })
       .sort((a, b) => {
         let valA: any = a[sortBy] || "";
@@ -741,7 +743,7 @@ export function AdminDashboard() {
         if (valA > valB) return sortOrder === "asc" ? 1 : -1;
         return 0;
       });
-  }, [registrations, searchTerm, statusFilter, courseFilter, locationFilter, casteFilter, sortBy, sortOrder]);
+  }, [registrations, searchTerm, statusFilter, courseFilter, preferredLocationFilter, districtFilter, casteFilter, sortBy, sortOrder]);
 
   // Statistics Summary
   const stats = useMemo(() => {
@@ -972,8 +974,8 @@ export function AdminDashboard() {
           </div>
 
           {/* Filter Dropdowns */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
-            {/* Status Filter */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-100">
+            {/* 1. Status Filter */}
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-slate-500 shrink-0">Status:</span>
               <select
@@ -989,24 +991,7 @@ export function AdminDashboard() {
               </select>
             </div>
 
-            {/* Minority Community / Caste Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500 shrink-0">Community:</span>
-              <select
-                value={casteFilter}
-                onChange={(e) => setCasteFilter(e.target.value)}
-                className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
-              >
-                <option value="All">All Communities (Castes)</option>
-                {MINORITY_RELIGIONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Course Filter */}
+            {/* 2. Course Filter */}
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-slate-500 shrink-0">Course:</span>
               <select
@@ -1023,18 +1008,52 @@ export function AdminDashboard() {
               </select>
             </div>
 
-            {/* Location Filter */}
+            {/* 3. Preferred Training Location Filter */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500 shrink-0">Location:</span>
+              <span className="text-xs font-medium text-slate-500 shrink-0">Training Location:</span>
               <select
-                value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
+                value={preferredLocationFilter}
+                onChange={(e) => setPreferredLocationFilter(e.target.value)}
                 className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
               >
-                <option value="All">All Locations (31 Districts)</option>
+                <option value="All">All Training Locations (31 Districts)</option>
                 {KARNATAKA_DISTRICTS.map((d) => (
                   <option key={d} value={d}>
                     {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 4. Candidate Home District Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500 shrink-0">Home District:</span>
+              <select
+                value={districtFilter}
+                onChange={(e) => setDistrictFilter(e.target.value)}
+                className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
+              >
+                <option value="All">All Home Districts (31 Districts)</option>
+                {KARNATAKA_DISTRICTS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 5. Minority Community / Caste Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500 shrink-0">Community:</span>
+              <select
+                value={casteFilter}
+                onChange={(e) => setCasteFilter(e.target.value)}
+                className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
+              >
+                <option value="All">All Communities (Castes)</option>
+                {MINORITY_RELIGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
                   </option>
                 ))}
               </select>
@@ -1085,10 +1104,12 @@ export function AdminDashboard() {
                       {/* Candidate Name & Contact */}
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-slate-900">{app.full_name}</div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                        <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                           <span>📱 {app.phone}</span>
                           <span>•</span>
                           <span>{app.religion}</span>
+                          <span>•</span>
+                          <span className="text-slate-600 font-medium">📍 Dist: {app.district}</span>
                         </div>
                       </td>
 
