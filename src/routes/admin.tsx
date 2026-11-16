@@ -976,12 +976,13 @@ export function AdminDashboard() {
           {/* Filter Dropdowns */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-100">
             {/* 1. Status Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500 shrink-0">Status:</span>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Status:</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
+                title="Filter by Application Status"
               >
                 <option value="All">All Statuses ({registrations.length})</option>
                 <option value="Pending">⏳ Pending Review ({stats.pendingReview})</option>
@@ -992,12 +993,13 @@ export function AdminDashboard() {
             </div>
 
             {/* 2. Course Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500 shrink-0">Course:</span>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Course:</label>
               <select
                 value={courseFilter}
                 onChange={(e) => setCourseFilter(e.target.value)}
                 className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
+                title="Filter by Course"
               >
                 <option value="All">All Courses</option>
                 {COURSES.map((c) => (
@@ -1009,14 +1011,15 @@ export function AdminDashboard() {
             </div>
 
             {/* 3. Preferred Training Location Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500 shrink-0">Training Location:</span>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Training Location:</label>
               <select
                 value={preferredLocationFilter}
                 onChange={(e) => setPreferredLocationFilter(e.target.value)}
                 className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
+                title="Filter by Preferred Training Location"
               >
-                <option value="All">All Training Locations (31 Districts)</option>
+                <option value="All">All Training Locations</option>
                 {KARNATAKA_DISTRICTS.map((d) => (
                   <option key={d} value={d}>
                     {d}
@@ -1026,14 +1029,15 @@ export function AdminDashboard() {
             </div>
 
             {/* 4. Candidate Home District Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500 shrink-0">Home District:</span>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Home District:</label>
               <select
                 value={districtFilter}
                 onChange={(e) => setDistrictFilter(e.target.value)}
                 className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
+                title="Filter by Candidate Home District"
               >
-                <option value="All">All Home Districts (31 Districts)</option>
+                <option value="All">All Home Districts</option>
                 {KARNATAKA_DISTRICTS.map((d) => (
                   <option key={d} value={d}>
                     {d}
@@ -1043,14 +1047,15 @@ export function AdminDashboard() {
             </div>
 
             {/* 5. Minority Community / Caste Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500 shrink-0">Community:</span>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Community:</label>
               <select
                 value={casteFilter}
                 onChange={(e) => setCasteFilter(e.target.value)}
                 className="w-full text-xs rounded-md border border-slate-200 py-1.5 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-navy"
+                title="Filter by Community"
               >
-                <option value="All">All Communities (Castes)</option>
+                <option value="All">All Communities</option>
                 {MINORITY_RELIGIONS.map((r) => (
                   <option key={r} value={r}>
                     {r}
