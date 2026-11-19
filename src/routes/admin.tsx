@@ -222,51 +222,71 @@ export function AdminDashboard() {
 
   const [fetchError, setFetchError] = useState("");
 
-  // Fetch registrations from Supabase with resilient lightweight query + detail loading
+  // Fetch registrations from Supabase with resilient chunked query (bypasses 1000 limit) + detail loading
   const fetchRegistrations = async () => {
     setLoading(true);
     setFetchError("");
     try {
-      // First attempt: fetch all columns
-      const { data, error } = await supabase
-        .from("vtu_minority_registrations")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const CHUNK_SIZE = 1000;
 
-      if (error) {
-        console.warn("Full fetch failed, attempting lightweight fetch:", error);
-        
+      // Helper to fetch all records in chunks of 1000 (bypassing PostgREST default max-rows limit)
+      const fetchAllInChunks = async (columns: string): Promise<any[]> => {
+        let records: any[] = [];
+        let from = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const to = from + CHUNK_SIZE - 1;
+          const { data, error } = await supabase
+            .from("vtu_minority_registrations")
+            .select(columns)
+            .order("created_at", { ascending: false })
+            .range(from, to);
+
+          if (error) {
+            throw error;
+          }
+
+          if (data && data.length > 0) {
+            records = records.concat(data);
+            if (data.length < CHUNK_SIZE) {
+              hasMore = false;
+            } else {
+              from += CHUNK_SIZE;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return records;
+      };
+
+      let allData: any[] = [];
+      try {
+        // Attempt full columns query in chunks
+        allData = await fetchAllInChunks("*");
+      } catch (err: any) {
+        console.warn("Full fetch failed, attempting lightweight fetch:", err);
         // Fallback: If statement timeout occurs due to large base64 document payloads,
         // fetch metadata first so the dashboard table loads instantly
-        const { data: lightData, error: lightError } = await supabase
-          .from("vtu_minority_registrations")
-          .select("id, reference_no, full_name, father_name, mother_name, gender, date_of_birth, religion, specially_abled, aadhaar_number, email, phone, alt_phone, address, district, taluk, pincode, qualification, year_of_passing, course, preferred_centre, employment_status, family_income, heard_from, remarks, status, status_reason, created_at")
-          .order("created_at", { ascending: false });
-
-        if (lightError) {
-          console.error("Lightweight fetch error:", lightError);
-          setFetchError(lightError.message || "Failed to fetch registrations. Check Supabase RLS policies & SQL query timeout.");
-        } else if (lightData) {
-          const normalized = lightData.map((item: any, idx: number) => ({
-            ...item,
-            status: item.status || "Pending",
-            status_reason: item.status_reason || null,
-            reference_no: item.reference_no || `VTU${new Date(item.created_at || Date.now()).getFullYear()}MSD${String(lightData.length - idx).padStart(3, "0")}`,
-          }));
-          setRegistrations(normalized as Registration[]);
-        }
-      } else if (data) {
-        const normalized = data.map((item: any, idx: number) => ({
-          ...item,
-          status: item.status || "Pending",
-          status_reason: item.status_reason || null,
-          reference_no: item.reference_no || `VTU${new Date(item.created_at || Date.now()).getFullYear()}MSD${String(data.length - idx).padStart(3, "0")}`,
-        }));
-        setRegistrations(normalized as Registration[]);
+        const lightCols =
+          "id, reference_no, full_name, father_name, mother_name, gender, date_of_birth, religion, specially_abled, aadhaar_number, email, phone, alt_phone, address, district, taluk, pincode, qualification, year_of_passing, course, preferred_centre, employment_status, family_income, heard_from, remarks, status, status_reason, created_at";
+        allData = await fetchAllInChunks(lightCols);
       }
+
+      const normalized = allData.map((item: any, idx: number) => ({
+        ...item,
+        status: item.status || "Pending",
+        status_reason: item.status_reason || null,
+        reference_no:
+          item.reference_no ||
+          `VTU${new Date(item.created_at || Date.now()).getFullYear()}MSD${String(allData.length - idx).padStart(3, "0")}`,
+      }));
+      setRegistrations(normalized as Registration[]);
     } catch (err: any) {
       console.error("Fetch error:", err);
-      setFetchError(err.message || "Unexpected error while fetching from database.");
+      setFetchError(err.message || "Failed to fetch registrations. Check Supabase RLS policies & network connection.");
     } finally {
       setLoading(false);
     }
